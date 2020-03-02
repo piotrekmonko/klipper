@@ -15,6 +15,7 @@ class PrinterHeaterBed:
         gcode = self.printer.lookup_object('gcode')
         gcode.register_command("M140", self.cmd_M140)
         gcode.register_command("M190", self.cmd_M190)
+
     def cmd_M140(self, params, wait=False):
         # Set Bed Temperature
         gcode = self.printer.lookup_object('gcode')
@@ -23,9 +24,11 @@ class PrinterHeaterBed:
         self.heater.set_temp(temp)
         if wait and temp:
             gcode.wait_for_temperature(self.heater)
+
     def cmd_M190(self, params):
         # Set Bed Temperature and Wait
         self.cmd_M140(params, wait=True)
+
 
 def load_config(config):
     return PrinterHeaterBed(config)

@@ -6,6 +6,7 @@
 
 KELVIN_TO_CELSIUS = -273.15
 
+
 class PrinterSensorGeneric:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -18,12 +19,16 @@ class PrinterSensorGeneric:
         self.sensor.setup_callback(self.temperature_callback)
         self.printer.lookup_object('heater').register_sensor(config, self)
         self.last_temp = 0.
+
     def temperature_callback(self, read_time, temp):
         self.last_temp = temp
+
     def get_temp(self, eventtime):
         return self.last_temp, 0.
+
     def get_status(self, eventtime):
         return {'temperature': self.last_temp}
+
 
 def load_config_prefix(config):
     return PrinterSensorGeneric(config)

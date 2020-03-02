@@ -31,12 +31,14 @@ class SoftwareI2C:
         self.mcu.add_config_cmd("config_digital_out oid=%d pin=%s"
                                 " value=%d default_value=%d max_duration=%d" % (
                                     self.sda_oid, sda_params['pin'], 1, 1, 0))
+
     def build_config(self):
         self.mcu.add_config_cmd("config_digital_out oid=%d pin=%s value=%d"
                                 " default_value=%d max_duration=%d" % (
                                     self.scl_oid, self.scl_pin, 1, 1, 0))
         self.update_pin_cmd = self.mcu.lookup_command(
             "update_digital_out oid=%c value=%c", cq=self.cmd_queue)
+
     def i2c_write(self, msg):
         msg = [self.addr] + msg
         send = self.scl_main.update_pin_cmd.send
@@ -63,6 +65,7 @@ class SoftwareI2C:
         send([self.scl_oid, 1])
         send([self.sda_oid, 1])
 
+
 class mcp4018:
     def __init__(self, config):
         self.i2c = SoftwareI2C(config, 0x2f)
@@ -71,11 +74,14 @@ class mcp4018:
                                            minval=0., maxval=self.scale)
         config.get_printer().register_event_handler("klippy:connect",
                                                     self.handle_connect)
+
     def handle_connect(self):
         self.set_dac(self.start_value)
+
     def set_dac(self, value):
         val = int(value * 127. / self.scale + .5)
         self.i2c.i2c_write([val])
+
 
 def load_config_prefix(config):
     return mcp4018(config)

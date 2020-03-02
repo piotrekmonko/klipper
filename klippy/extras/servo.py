@@ -7,6 +7,7 @@
 SERVO_SIGNAL_PERIOD = 0.020
 PIN_MIN_TIME = 0.100
 
+
 class PrinterServo:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -45,32 +46,39 @@ class PrinterServo:
                 self.initial_pwm_value = self._get_pwm_from_pulse_width(
                     initial_pulse_width)
         self.printer.register_event_handler("klippy:ready", self.handle_ready)
+
     def handle_ready(self):
         if self.initial_pwm_value is not None:
             toolhead = self.printer.lookup_object('toolhead')
             print_time = toolhead.get_last_move_time()
             self._set_pwm(print_time, self.initial_pwm_value)
+
     def get_status(self, eventtime):
         return {'value': self.last_value}
+
     def _set_pwm(self, print_time, value):
         if value == self.last_value and self.enable == self.last_enable:
             return
         print_time = max(print_time, self.last_value_time + PIN_MIN_TIME)
         if self.enable:
-          self.mcu_servo.set_pwm(print_time, value)
+            self.mcu_servo.set_pwm(print_time, value)
         else:
-          self.mcu_servo.set_pwm(print_time, 0)
+            self.mcu_servo.set_pwm(print_time, 0)
         self.last_value = value
         self.last_enable = self.enable
         self.last_value_time = print_time
+
     def _get_pwm_from_angle(self, angle):
         angle = max(0., min(self.max_angle, angle))
         width = self.min_width + angle * self.angle_to_width
         return width * self.width_to_value
+
     def _get_pwm_from_pulse_width(self, width):
         width = max(self.min_width, min(self.max_width, width))
         return width * self.width_to_value
+
     cmd_SET_SERVO_help = "Set servo angle"
+
     def cmd_SET_SERVO(self, params):
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
         if 'ENABLE' in params:
@@ -85,6 +93,7 @@ class PrinterServo:
                     self.gcode.get_float('ANGLE', params)))
             else:
                 self._set_pwm(print_time, self.last_value)
+
 
 def load_config_prefix(config):
     return PrinterServo(config)

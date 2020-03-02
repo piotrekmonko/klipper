@@ -6,6 +6,7 @@
 
 PIN_MIN_TIME = 0.100
 
+
 class PrinterOutputPin:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -39,9 +40,12 @@ class PrinterOutputPin:
             self.gcode.register_mux_command("SET_PIN", "PIN", pin_name,
                                             self.cmd_SET_PIN,
                                             desc=self.cmd_SET_PIN_help)
+
     def get_status(self, eventtime):
         return {'value': self.last_value}
+
     cmd_SET_PIN_help = "Set the value of an output pin"
+
     def cmd_SET_PIN(self, params):
         value = self.gcode.get_float('VALUE', params,
                                      minval=0., maxval=self.scale)
@@ -58,6 +62,7 @@ class PrinterOutputPin:
             self.mcu_pin.set_digital(print_time, value)
         self.last_value = value
         self.last_value_time = print_time
+
 
 def load_config_prefix(config):
     return PrinterOutputPin(config)

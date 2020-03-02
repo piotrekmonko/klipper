@@ -6,6 +6,7 @@
 
 BACKGROUND_PRIORITY_CLOCK = 0x7fffffff00000000
 
+
 class PrinterNeoPixel:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -32,10 +33,12 @@ class PrinterNeoPixel:
         self.gcode.register_mux_command("SET_LED", "LED", name,
                                         self.cmd_SET_LED,
                                         desc=self.cmd_SET_LED_help)
+
     def build_config(self):
         cmd_queue = self.mcu.alloc_command_queue()
         self.neopixel_send_cmd = self.mcu.lookup_command(
             "neopixel_send oid=%c data=%*s", cq=cmd_queue)
+
     def update_color_data(self, red, green, blue, index=None):
         red = int(red * 255. + .5)
         blue = int(blue * 255. + .5)
@@ -47,12 +50,15 @@ class PrinterNeoPixel:
         if index is None:
             self.color_data = color_data * self.chain_count
         else:
-            self.color_data[(index-1)*3:index*3] = color_data
+            self.color_data[(index - 1) * 3:index * 3] = color_data
+
     def send_data(self, minclock=0):
         self.neopixel_send_cmd.send([self.oid, self.color_data],
                                     minclock=minclock,
                                     reqclock=BACKGROUND_PRIORITY_CLOCK)
+
     cmd_SET_LED_help = "Set the color of an LED"
+
     def cmd_SET_LED(self, params):
         # Parse parameters
         red = self.gcode.get_float('RED', params, 0., minval=0., maxval=1.)
@@ -67,6 +73,7 @@ class PrinterNeoPixel:
             return
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
         self.send_data(self.mcu.print_time_to_clock(print_time))
+
 
 def load_config_prefix(config):
     return PrinterNeoPixel(config)

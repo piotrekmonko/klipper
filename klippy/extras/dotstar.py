@@ -7,6 +7,7 @@ import bus
 
 BACKGROUND_PRIORITY_CLOCK = 0x7fffffff00000000
 
+
 class PrinterDotstar:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -37,12 +38,15 @@ class PrinterDotstar:
         self.gcode.register_mux_command("SET_LED", "LED", name,
                                         self.cmd_SET_LED,
                                         desc=self.cmd_SET_LED_help)
+
     def send_data(self, minclock=0):
         data = self.color_data
-        for d in [data[i:i+20] for i in range(0, len(data), 20)]:
+        for d in [data[i:i + 20] for i in range(0, len(data), 20)]:
             self.spi.spi_send(d, minclock=minclock,
                               reqclock=BACKGROUND_PRIORITY_CLOCK)
+
     cmd_SET_LED_help = "Set the color of an LED"
+
     def cmd_SET_LED(self, params):
         # Parse parameters
         red = self.gcode.get_float('RED', params, 0., minval=0., maxval=1.)
@@ -56,7 +60,7 @@ class PrinterDotstar:
         if 'INDEX' in params:
             index = self.gcode.get_int('INDEX', params,
                                        minval=1, maxval=self.chain_count)
-            self.color_data[index*4:(index+1)*4] = color_data
+            self.color_data[index * 4:(index + 1) * 4] = color_data
         else:
             self.color_data[4:-4] = color_data * self.chain_count
         # Send command
@@ -64,6 +68,7 @@ class PrinterDotstar:
             return
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
         self.send_data(self.spi.get_mcu().print_time_to_clock(print_time))
+
 
 def load_config_prefix(config):
     return PrinterDotstar(config)

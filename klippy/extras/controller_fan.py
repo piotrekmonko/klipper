@@ -7,6 +7,7 @@ import fan
 
 PIN_MIN_TIME = 0.100
 
+
 class ControllerFan:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -26,6 +27,7 @@ class ControllerFan:
         self.idle_timeout = config.getint("idle_timeout", default=30, minval=0)
         self.heater_name = config.get("heater", "extruder")
         self.last_on = self.idle_timeout
+
     def handle_ready(self):
         pheater = self.printer.lookup_object('heater')
         self.heaters = [pheater.lookup_heater(n.strip())
@@ -34,6 +36,7 @@ class ControllerFan:
         self.stepper_names = [s.get_name() for s in kin.get_steppers()]
         reactor = self.printer.get_reactor()
         reactor.register_timer(self.callback, reactor.NOW)
+
     def callback(self, eventtime):
         power = 0.
         active = False
@@ -52,6 +55,7 @@ class ControllerFan:
         print_time = self.mcu.estimated_print_time(eventtime) + PIN_MIN_TIME
         self.fan.set_speed(print_time, power)
         return eventtime + 1.
+
 
 def load_config_prefix(config):
     return ControllerFan(config)

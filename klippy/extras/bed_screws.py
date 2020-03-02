@@ -3,7 +3,7 @@
 # Copyright (C) 2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import homing
+
 
 def parse_coord(config, param):
     pair = config.get(param).strip().split(',', 1)
@@ -12,6 +12,7 @@ def parse_coord(config, param):
     except:
         raise config.error("%s:%s needs to be an x,y coordinate" % (
             config.get_name(), param))
+
 
 class BedScrews:
     def __init__(self, config):
@@ -45,6 +46,7 @@ class BedScrews:
         self.gcode.register_command("BED_SCREWS_ADJUST",
                                     self.cmd_BED_SCREWS_ADJUST,
                                     desc=self.cmd_BED_SCREWS_ADJUST_help)
+
     def move(self, coord, speed):
         toolhead = self.printer.lookup_object('toolhead')
         curpos = toolhead.get_position()
@@ -53,6 +55,7 @@ class BedScrews:
                 curpos[i] = coord[i]
         toolhead.move(curpos, speed)
         self.gcode.reset_last_position()
+
     def move_to_screw(self, state, screw):
         # Move up, over, and then down
         self.move((None, None, self.horizontal_move_z), self.lift_speed)
@@ -72,11 +75,14 @@ class BedScrews:
                                     desc=self.cmd_ADJUSTED_help)
         self.gcode.register_command('ABORT', self.cmd_ABORT,
                                     desc=self.cmd_ABORT_help)
+
     def unregister_commands(self):
         self.gcode.register_command('ACCEPT', None)
         self.gcode.register_command('ADJUSTED', None)
         self.gcode.register_command('ABORT', None)
+
     cmd_BED_SCREWS_ADJUST_help = "Tool to help adjust bed leveling screws"
+
     def cmd_BED_SCREWS_ADJUST(self, params):
         if self.state is not None:
             raise self.gcode.error(
@@ -84,7 +90,9 @@ class BedScrews:
         self.adjust_again = False
         self.move((None, None, self.horizontal_move_z), self.speed)
         self.move_to_screw('adjust', 0)
+
     cmd_ACCEPT_help = "Accept bed screw position"
+
     def cmd_ACCEPT(self, params):
         self.unregister_commands()
         if self.current_screw + 1 < len(self.states[self.state]):
@@ -104,15 +112,20 @@ class BedScrews:
         self.state = None
         self.move((None, None, self.horizontal_move_z), self.lift_speed)
         self.gcode.respond_info("Bed screws tool completed successfully")
+
     cmd_ADJUSTED_help = "Accept bed screw position after notable adjustment"
+
     def cmd_ADJUSTED(self, params):
         self.unregister_commands()
         self.adjust_again = True
         self.cmd_ACCEPT(params)
+
     cmd_ABORT_help = "Abort bed screws tool"
+
     def cmd_ABORT(self, params):
         self.unregister_commands()
         self.state = None
+
 
 def load_config(config):
     return BedScrews(config)

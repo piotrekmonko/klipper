@@ -5,15 +5,17 @@
 # Copyright (C) 2018  Eric Callahan <arksine.code@gmail.com>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging
-import hd44780, st7920, uc1701
+import hd44780
 import menu
+import st7920
+import uc1701
 
 LCD_chips = {
     'st7920': st7920.ST7920, 'hd44780': hd44780.HD44780,
     'uc1701': uc1701.UC1701, 'ssd1306': uc1701.SSD1306, 'sh1106': uc1701.SH1106,
 }
 M73_TIMEOUT = 5.
+
 
 class PrinterLCD:
     def __init__(self, config):
@@ -34,6 +36,7 @@ class PrinterLCD:
         self.gcode = self.printer.lookup_object('gcode')
         self.gcode.register_command('M73', self.cmd_M73)
         self.gcode.register_command('M117', self.cmd_M117)
+
     # Initialization
     def handle_ready(self):
         self.lcd_chip.init()
@@ -50,35 +53,40 @@ class PrinterLCD:
         self.message = None
         # Start screen update timer
         self.reactor.update_timer(self.screen_update_timer, self.reactor.NOW)
+
     def get_status(self, eventtime):
         return {
             'progress': self.progress or 0,
             'message': self.message or ''
         }
+
     # Get menu instance
     def get_menu(self):
         return self.menu
+
     # Graphics drawing
     def animate_glyphs(self, eventtime, x, y, glyph_name, do_animate):
         frame = do_animate and int(eventtime) & 1
         self.lcd_chip.write_glyph(x, y, glyph_name + str(frame + 1))
+
     def draw_progress_bar(self, x, y, width, value):
         value = int(value * 100.)
         data = [0x00] * width
-        char_pcnt = int(100/width)
+        char_pcnt = int(100 / width)
         for i in range(width):
-            if (i+1)*char_pcnt <= value:
+            if (i + 1) * char_pcnt <= value:
                 # Draw completely filled bytes
                 data[i] |= 0xFF
-            elif (i*char_pcnt) < value:
+            elif (i * char_pcnt) < value:
                 # Draw partially filled bytes
-                data[i] |= (-1 << 8-((value % char_pcnt)*8/char_pcnt)) & 0xff
+                data[i] |= (-1 << 8 - ((value % char_pcnt) * 8 / char_pcnt)) & 0xff
         data[0] |= 0x80
         data[-1] |= 0x01
-        self.lcd_chip.write_graphics(x, y, 0, [0xff]*width)
+        self.lcd_chip.write_graphics(x, y, 0, [0xff] * width)
         for i in range(1, 15):
             self.lcd_chip.write_graphics(x, y, i, data)
-        self.lcd_chip.write_graphics(x, y, 15, [0xff]*width)
+        self.lcd_chip.write_graphics(x, y, 15, [0xff] * width)
+
     # Screen updating
     def screen_update_event(self, eventtime):
         # update menu component
@@ -93,6 +101,7 @@ class PrinterLCD:
             self.screen_update_128x64(eventtime)
         self.lcd_chip.flush()
         return eventtime + .500
+
     def screen_update_hd44780(self, eventtime):
         lcd_chip = self.lcd_chip
         # Heaters
@@ -137,6 +146,7 @@ class PrinterLCD:
         lcd_chip.write_glyph(14, 2, 'clock')
         self.draw_time(15, 2, toolhead_info['printing_time'])
         self.draw_status(0, 3, gcode_info, toolhead_info)
+
     def screen_update_128x64(self, eventtime):
         # Heaters
         if self.extruder is not None:
@@ -200,6 +210,7 @@ class PrinterLCD:
             offset = 1 if printing_time < 100 * 60 * 60 else 0
             self.draw_time(10 + offset, 2, printing_time)
         self.draw_status(0, 3, gcode_info, toolhead_info)
+
     # Screen update helpers
     def draw_text(self, x, y, mixed_text):
         pos = x
@@ -211,6 +222,7 @@ class PrinterLCD:
             else:
                 # write glyph
                 pos += self.lcd_chip.write_glyph(pos, y, text)
+
     def draw_heater(self, x, y, info):
         temperature, target = info['temperature'], info['target']
         if target and abs(temperature - target) > 2.:
@@ -218,12 +230,15 @@ class PrinterLCD:
                 temperature, target))
         else:
             self.draw_text(x, y, "%3.0f~degrees~" % (temperature,))
+
     def draw_percent(self, x, y, width, value, align='^'):
         self.lcd_chip.write_text(x, y, '{:{}{}.0%}'.format(value, align, width))
+
     def draw_time(self, x, y, seconds):
         seconds = int(seconds)
         self.lcd_chip.write_text(x, y, "%02d:%02d" % (
             seconds // (60 * 60), (seconds // 60) % 60))
+
     def draw_status(self, x, y, gcode_info, toolhead_info):
         # If there is a message set by M117, display it instead of toolhead info
         if self.message:
@@ -240,14 +255,17 @@ class PrinterLCD:
             pos = self.toolhead.get_position()
             status = "X%-4.0fY%-4.0fZ%-5.2f" % (pos[0], pos[1], pos[2])
         self.lcd_chip.write_text(x, y, status)
+
     def set_message(self, msg, msg_time=None):
         self.message = msg
         self.msg_time = msg_time
+
     # print progress: M73 P<percent>
     def cmd_M73(self, params):
         self.progress = min(100., max(0., self.gcode.get_float(
             'P', params, 0.)))
         self.prg_time = M73_TIMEOUT
+
     def cmd_M117(self, params):
         if '#original' in params:
             msg = params['#original']
@@ -262,6 +280,7 @@ class PrinterLCD:
                 self.set_message(msg)
             else:
                 self.set_message(None)
+
 
 def load_config(config):
     return PrinterLCD(config)

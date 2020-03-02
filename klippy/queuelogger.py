@@ -3,13 +3,19 @@
 # Copyright (C) 2016-2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, logging.handlers, threading, Queue, time
+import Queue
+import logging
+import logging.handlers
+import threading
+import time
+
 
 # Class to forward all messages through a queue to a background thread
 class QueueHandler(logging.Handler):
     def __init__(self, queue):
         logging.Handler.__init__(self)
         self.queue = queue
+
     def emit(self, record):
         try:
             self.format(record)
@@ -20,6 +26,7 @@ class QueueHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
+
 # Class to poll a queue in a background thread and log each message
 class QueueListener(logging.handlers.TimedRotatingFileHandler):
     def __init__(self, filename):
@@ -29,19 +36,24 @@ class QueueListener(logging.handlers.TimedRotatingFileHandler):
         self.bg_thread = threading.Thread(target=self._bg_thread)
         self.bg_thread.start()
         self.rollover_info = {}
+
     def _bg_thread(self):
         while 1:
             record = self.bg_queue.get(True)
             if record is None:
                 break
             self.handle(record)
+
     def stop(self):
         self.bg_queue.put_nowait(None)
         self.bg_thread.join()
+
     def set_rollover_info(self, name, info):
         self.rollover_info[name] = info
+
     def clear_rollover_info(self):
         self.rollover_info.clear()
+
     def doRollover(self):
         logging.handlers.TimedRotatingFileHandler.doRollover(self)
         lines = [self.rollover_info[name]
@@ -52,7 +64,9 @@ class QueueListener(logging.handlers.TimedRotatingFileHandler):
         self.emit(logging.makeLogRecord(
             {'msg': "\n".join(lines), 'level': logging.INFO}))
 
+
 MainQueueHandler = None
+
 
 def setup_bg_logging(filename, debuglevel):
     global MainQueueHandler
@@ -62,6 +76,7 @@ def setup_bg_logging(filename, debuglevel):
     root.addHandler(MainQueueHandler)
     root.setLevel(debuglevel)
     return ql
+
 
 def clear_bg_logging():
     global MainQueueHandler

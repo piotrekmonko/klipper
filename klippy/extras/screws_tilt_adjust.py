@@ -4,7 +4,9 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import math
+
 import probe
+
 
 def parse_coord(config, param):
     pair = config.get(param).strip().split(',', 1)
@@ -13,6 +15,7 @@ def parse_coord(config, param):
     except:
         raise config.error("%s:%s needs to be an x,y coordinate" % (
             config.get_name(), param))
+
 
 class ScrewsTiltAdjust:
     def __init__(self, config):
@@ -46,6 +49,7 @@ class ScrewsTiltAdjust:
         self.gcode.register_command("SCREWS_TILT_CALCULATE",
                                     self.cmd_SCREWS_TILT_CALCULATE,
                                     desc=self.cmd_SCREWS_TILT_CALCULATE_help)
+
     cmd_SCREWS_TILT_CALCULATE_help = "Tool to help adjust bed leveling " \
                                      "screws by calculating the number " \
                                      "of turns to level it."
@@ -87,6 +91,7 @@ class ScrewsTiltAdjust:
                                         "Adjust -> %s %02d:%02d" %
                                         (name, coord[0], coord[1], z, sign,
                                          abs(full_turns), abs(minutes)))
+
 
 def load_config(config):
     return ScrewsTiltAdjust(config)

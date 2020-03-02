@@ -4,7 +4,6 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
-import logging
 
 class HomingHeaters:
     def __init__(self, config):
@@ -26,7 +25,7 @@ class HomingHeaters:
         # heaters to disable
         all_heaters = self.pheater.get_all_heaters()
         self.disable_heaters = [n.strip()
-                          for n in self.heaters_to_disable.split(',')]
+                                for n in self.heaters_to_disable.split(',')]
         if self.disable_heaters == [""]:
             self.disable_heaters = all_heaters
         else:
@@ -38,13 +37,14 @@ class HomingHeaters:
         kin = self.printer.lookup_object('toolhead').get_kinematics()
         all_steppers = [s.get_name() for s in kin.get_steppers()]
         self.flaky_steppers = [n.strip()
-                         for n in self.steppers_needing_quiet.split(',')]
+                               for n in self.steppers_needing_quiet.split(',')]
         if self.flaky_steppers == [""]:
             return
         if not all(x in all_steppers for x in self.flaky_steppers):
             raise self.printer.config_error(
                 "One or more of these steppers are unknown: %s" % (
                     self.flaky_steppers))
+
     def check_eligible(self, endstops):
         if self.flaky_steppers == [""]:
             return True
@@ -52,6 +52,7 @@ class HomingHeaters:
                                 for es in endstops
                                 for s in es.get_steppers()]
         return any(x in self.flaky_steppers for x in steppers_being_homed)
+
     def handle_homing_move_begin(self, endstops):
         if not self.check_eligible(endstops):
             return
@@ -59,12 +60,14 @@ class HomingHeaters:
             heater = self.pheater.lookup_heater(heater_name)
             self.target_save[heater_name] = heater.get_temp(0)[1]
             heater.set_temp(0.)
+
     def handle_homing_move_end(self, endstops):
         if not self.check_eligible(endstops):
             return
         for heater_name in self.disable_heaters:
             heater = self.pheater.lookup_heater(heater_name)
             heater.set_temp(self.target_save[heater_name])
+
 
 def load_config(config):
     return HomingHeaters(config)

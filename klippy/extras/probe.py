@@ -4,7 +4,10 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging
-import pins, homing, manual_probe
+
+import homing
+import manual_probe
+import pins
 
 HINT_TIMEOUT = """
 Make sure to home the printer before probing. If the probe
@@ -12,6 +15,7 @@ did not move far enough to trigger, then consider reducing
 the Z axis minimum position so the probe can travel further
 (the Z minimum position can be negative).
 """
+
 
 class PrinterProbe:
     def __init__(self, config, mcu_probe):
@@ -66,45 +70,56 @@ class PrinterProbe:
                                     desc=self.cmd_PROBE_CALIBRATE_help)
         self.gcode.register_command('PROBE_ACCURACY', self.cmd_PROBE_ACCURACY,
                                     desc=self.cmd_PROBE_ACCURACY_help)
+
     def _handle_homing_move_begin(self, endstops):
         if self.mcu_probe in endstops:
             self.mcu_probe.probe_prepare()
+
     def _handle_homing_move_end(self, endstops):
         if self.mcu_probe in endstops:
             self.mcu_probe.probe_finalize()
+
     def _handle_home_rails_begin(self, rails):
         endstops = [es for rail in rails for es, name in rail.get_endstops()]
         if self.mcu_probe in endstops:
             self.multi_probe_begin()
+
     def _handle_home_rails_end(self, rails):
         endstops = [es for rail in rails for es, name in rail.get_endstops()]
         if self.mcu_probe in endstops:
             self.multi_probe_end()
+
     def _handle_command_error(self):
         try:
             self.multi_probe_end()
         except:
             logging.exception("Multi-probe end")
+
     def multi_probe_begin(self):
         self.mcu_probe.multi_probe_begin()
         self.multi_probe_pending = True
+
     def multi_probe_end(self):
         if self.multi_probe_pending:
             self.multi_probe_pending = False
             self.mcu_probe.multi_probe_end()
+
     def setup_pin(self, pin_type, pin_params):
         if pin_type != 'endstop' or pin_params['pin'] != 'z_virtual_endstop':
             raise pins.error("Probe virtual endstop only useful as endstop pin")
         if pin_params['invert'] or pin_params['pullup']:
             raise pins.error("Can not pullup/invert probe virtual endstop")
         return self.mcu_probe
+
     def get_lift_speed(self, params=None):
         if params is not None:
             return self.gcode.get_float("LIFT_SPEED", params,
                                         self.lift_speed, above=0.)
         return self.lift_speed
+
     def get_offsets(self):
         return self.x_offset, self.y_offset, self.z_offset
+
     def _probe(self, speed):
         toolhead = self.printer.lookup_object('toolhead')
         homing_state = homing.Homing(self.printer)
@@ -125,6 +140,7 @@ class PrinterProbe:
             pos[0], pos[1], pos[2]))
         self.gcode.reset_last_position()
         return pos[:3]
+
     def _move(self, coord, speed):
         toolhead = self.printer.lookup_object('toolhead')
         curpos = toolhead.get_position()
@@ -133,10 +149,12 @@ class PrinterProbe:
                 curpos[i] = coord[i]
         toolhead.move(curpos, speed)
         self.gcode.reset_last_position()
+
     def _calc_mean(self, positions):
         count = float(len(positions))
         return [sum([pos[i] for pos in positions]) / count
                 for i in range(3)]
+
     def _calc_median(self, positions):
         z_sorted = sorted(positions, key=(lambda p: p[2]))
         middle = len(positions) // 2
@@ -144,7 +162,8 @@ class PrinterProbe:
             # odd number of samples
             return z_sorted[middle]
         # even number of samples
-        return self._calc_mean(z_sorted[middle-1:middle+1])
+        return self._calc_mean(z_sorted[middle - 1:middle + 1])
+
     def run_probe(self, params={}):
         speed = self.gcode.get_float(
             "PROBE_SPEED", params, self.speed, above=0.)
@@ -188,18 +207,24 @@ class PrinterProbe:
         if samples_result == 'median':
             return self._calc_median(positions)
         return self._calc_mean(positions)
+
     cmd_PROBE_help = "Probe Z-height at current XY position"
+
     def cmd_PROBE(self, params):
         pos = self.run_probe(params)
         self.gcode.respond_info("Result is z=%.6f" % (pos[2],))
+
     cmd_QUERY_PROBE_help = "Return the status of the z-probe"
+
     def cmd_QUERY_PROBE(self, params):
         toolhead = self.printer.lookup_object('toolhead')
         print_time = toolhead.get_last_move_time()
         res = self.mcu_probe.query_endstop(print_time)
         self.gcode.respond_info(
             "probe: %s" % (["open", "TRIGGERED"][not not res],))
+
     cmd_PROBE_ACCURACY_help = "Probe Z-height accuracy at current XY position"
+
     def cmd_PROBE_ACCURACY(self, params):
         speed = self.gcode.get_float("PROBE_SPEED", params,
                                      self.speed, above=0.)
@@ -241,7 +266,8 @@ class PrinterProbe:
         self.gcode.respond_info(
             "probe accuracy results: maximum %.6f, minimum %.6f, range %.6f, "
             "average %.6f, median %.6f, standard deviation %.6f" % (
-            max_value, min_value, range_value, avg_value, median, sigma))
+                max_value, min_value, range_value, avg_value, median, sigma))
+
     def probe_calibrate_finalize(self, kin_pos):
         if kin_pos is None:
             return
@@ -252,7 +278,9 @@ class PrinterProbe:
             "with the above and restart the printer." % (self.name, z_offset))
         configfile = self.printer.lookup_object('configfile')
         configfile.set(self.name, 'z_offset', "%.3f" % (z_offset,))
+
     cmd_PROBE_CALIBRATE_help = "Calibrate the probe's z_offset"
+
     def cmd_PROBE_CALIBRATE(self, params):
         manual_probe.verify_no_manual_probe(self.printer)
         # Perform initial probe
@@ -269,6 +297,7 @@ class PrinterProbe:
         # Start manual probe
         manual_probe.ManualProbeHelper(self.printer, params,
                                        self.probe_calibrate_finalize)
+
 
 # Endstop wrapper that enables probe specific features
 class ProbeEndstopWrapper:
@@ -295,15 +324,19 @@ class ProbeEndstopWrapper:
         self.home_start = self.mcu_endstop.home_start
         self.home_wait = self.mcu_endstop.home_wait
         self.query_endstop = self.mcu_endstop.query_endstop
+
     def _build_config(self):
         kin = self.printer.lookup_object('toolhead').get_kinematics()
         for stepper in kin.get_steppers():
             if stepper.is_active_axis('z'):
                 self.add_stepper(stepper)
+
     def multi_probe_begin(self):
         pass
+
     def multi_probe_end(self):
         pass
+
     def probe_prepare(self):
         toolhead = self.printer.lookup_object('toolhead')
         start_pos = toolhead.get_position()
@@ -311,6 +344,7 @@ class ProbeEndstopWrapper:
         if toolhead.get_position()[:3] != start_pos[:3]:
             raise homing.CommandError(
                 "Toolhead moved during probe activate_gcode script")
+
     def probe_finalize(self):
         toolhead = self.printer.lookup_object('toolhead')
         start_pos = toolhead.get_position()
@@ -318,8 +352,10 @@ class ProbeEndstopWrapper:
         if toolhead.get_position()[:3] != start_pos[:3]:
             raise homing.CommandError(
                 "Toolhead moved during probe deactivate_gcode script")
+
     def get_position_endstop(self):
         return self.position_endstop
+
 
 # Helper code that can probe a series of points and report the
 # position at each point.
@@ -347,14 +383,18 @@ class ProbePointsHelper:
         self.lift_speed = self.speed
         self.probe_offsets = (0., 0., 0.)
         self.results = []
-    def minimum_points(self,n):
+
+    def minimum_points(self, n):
         if len(self.probe_points) < n:
             raise self.printer.config_error(
                 "Need at least %d probe points for %s" % (n, self.name))
+
     def use_xy_offsets(self, use_offsets):
         self.use_offsets = use_offsets
+
     def get_lift_speed(self):
         return self.lift_speed
+
     def _move_next(self):
         toolhead = self.printer.lookup_object('toolhead')
         # Lift toolhead
@@ -381,6 +421,7 @@ class ProbePointsHelper:
         toolhead.move(curpos, self.speed)
         self.gcode.reset_last_position()
         return False
+
     def start_probe(self, params):
         manual_probe.verify_no_manual_probe(self.printer)
         # Lookup objects
@@ -407,16 +448,19 @@ class ProbePointsHelper:
             pos = probe.run_probe(params)
             self.results.append(pos)
         probe.multi_probe_end()
+
     def _manual_probe_start(self):
         done = self._move_next()
         if not done:
             manual_probe.ManualProbeHelper(self.printer, {},
                                            self._manual_probe_finalize)
+
     def _manual_probe_finalize(self, kin_pos):
         if kin_pos is None:
             return
         self.results.append(kin_pos)
         self._manual_probe_start()
+
 
 def load_config(config):
     return PrinterProbe(config, ProbeEndstopWrapper(config))

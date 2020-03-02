@@ -3,11 +3,13 @@
 # Copyright (C) 2016-2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, math, collections
+import collections
+import math
 
 HOMING_START_DELAY = 0.001
 ENDSTOP_SAMPLE_TIME = .000015
 ENDSTOP_SAMPLE_COUNT = 4
+
 
 class Homing:
     def __init__(self, printer):
@@ -15,12 +17,16 @@ class Homing:
         self.toolhead = printer.lookup_object('toolhead')
         self.changed_axes = []
         self.verify_retract = True
+
     def set_no_verify_retract(self):
         self.verify_retract = False
+
     def set_axes(self, axes):
         self.changed_axes = axes
+
     def get_axes(self):
         return self.changed_axes
+
     def _fill_coord(self, coord):
         # Fill in any None entries in 'coord' with current toolhead position
         thcoord = list(self.toolhead.get_position())
@@ -28,18 +34,21 @@ class Homing:
             if coord[i] is not None:
                 thcoord[i] = coord[i]
         return thcoord
+
     def set_homed_position(self, pos):
         self.toolhead.set_position(self._fill_coord(pos))
+
     def _calc_endstop_rate(self, mcu_endstop, movepos, speed):
         startpos = self.toolhead.get_position()
         axes_d = [mp - sp for mp, sp in zip(movepos, startpos)]
-        move_d = math.sqrt(sum([d*d for d in axes_d[:3]]))
+        move_d = math.sqrt(sum([d * d for d in axes_d[:3]]))
         move_t = move_d / speed
         max_steps = max([(abs(s.calc_position_from_coord(startpos)
                               - s.calc_position_from_coord(movepos))
                           / s.get_step_dist())
                          for s in mcu_endstop.get_steppers()])
         return move_t / max_steps
+
     def homing_move(self, movepos, endstops, speed,
                     probe_pos=False, verify_movement=False):
         # Notify start of homing/probing move
@@ -102,6 +111,7 @@ class Homing:
                         raise EndstopError("Probe triggered prior to movement")
                     raise EndstopError(
                         "Endstop %s still triggered after retract" % (name,))
+
     def home_rails(self, rails, forcepos, movepos):
         # Notify of upcoming homing operation
         self.printer.send_event("homing:home_rails_begin", rails)
@@ -118,7 +128,7 @@ class Homing:
         if hi.retract_dist:
             # Retract
             axes_d = [mp - fp for mp, fp in zip(movepos, forcepos)]
-            move_d = math.sqrt(sum([d*d for d in axes_d[:3]]))
+            move_d = math.sqrt(sum([d * d for d in axes_d[:3]]))
             retract_r = min(1., hi.retract_dist / move_d)
             retractpos = [mp - ad * retract_r
                           for mp, ad in zip(movepos, axes_d)]
@@ -141,6 +151,7 @@ class Homing:
             for axis in homing_axes:
                 movepos[axis] = adjustpos[axis]
             self.toolhead.set_position(movepos)
+
     def home_axes(self, axes):
         self.changed_axes = axes
         try:
@@ -149,6 +160,7 @@ class Homing:
             self.printer.lookup_object('stepper_enable').motor_off()
             raise
 
+
 # Return a completion that completes when all completions in a list complete
 def multi_complete(printer, completions):
     if len(completions) == 1:
@@ -156,14 +168,18 @@ def multi_complete(printer, completions):
     cb = (lambda e: all([c.wait() for c in completions]))
     return printer.get_reactor().register_callback(cb)
 
+
 class CommandError(Exception):
     pass
+
 
 class EndstopError(CommandError):
     pass
 
+
 def EndstopMoveError(pos, msg="Move out of range"):
     return EndstopError("%s: %.3f %.3f %.3f [%.3f]" % (
-            msg, pos[0], pos[1], pos[2], pos[3]))
+        msg, pos[0], pos[1], pos[2], pos[3]))
+
 
 Coord = collections.namedtuple('Coord', ('x', 'y', 'z', 'e'))

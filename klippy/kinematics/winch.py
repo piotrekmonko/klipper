@@ -3,7 +3,9 @@
 # Copyright (C) 2018-2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import stepper, mathutil
+import mathutil
+import stepper
+
 
 class WinchKinematics:
     def __init__(self, toolhead, config):
@@ -29,25 +31,32 @@ class WinchKinematics:
             s.set_max_jerk(max_halt_velocity, max_accel)
         # Setup boundary checks
         self.set_position([0., 0., 0.], ())
+
     def get_steppers(self):
         return list(self.steppers)
+
     def calc_tag_position(self):
         # Use only first three steppers to calculate cartesian position
         spos = [s.get_tag_position() for s in self.steppers[:3]]
-        return mathutil.trilateration(self.anchors[:3], [sp*sp for sp in spos])
+        return mathutil.trilateration(self.anchors[:3], [sp * sp for sp in spos])
+
     def set_position(self, newpos, homing_axes):
         for s in self.steppers:
             s.set_position(newpos)
+
     def home(self, homing_state):
         # XXX - homing not implemented
         homing_state.set_axes([0, 1, 2])
         homing_state.set_homed_position([0., 0., 0.])
+
     def check_move(self, move):
         # XXX - boundary checks and speed limits not implemented
         pass
+
     def get_status(self, eventtime):
         # XXX - homed_checks and rail limits not implemented
         return {'homed_axes': 'xyz'}
+
 
 def load_kinematics(toolhead, config):
     return WinchKinematics(toolhead, config)

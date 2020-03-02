@@ -5,7 +5,12 @@
 # Copyright (C) 2018  Janar Sööt <janar.soot@gmail.com>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import os, logging, sys, ast, re, string
+import ast
+import logging
+import os
+import re
+import string
+import sys
 
 
 class error(Exception):
@@ -102,8 +107,8 @@ class MenuElement(object):
             self.__scroll_dir = 0
             self.__scroll_offs = 0
         return s[
-            self.__scroll_offs:self._width + self.__scroll_offs
-        ].ljust(self._width)
+               self.__scroll_offs:self._width + self.__scroll_offs
+               ].ljust(self._width)
 
     def render(self, scroll=False):
         s = str(self._render())
@@ -351,16 +356,19 @@ class MenuItem(MenuElement):
                 return cast_fn(
                     right_min + (values[index] - left_min) * scale_factor
                 )
+
             return map_fn
 
         def scaler(scale_factor, cast_fn, index=0):
             def scale_fn(values):
                 return cast_fn(values[index] * scale_factor)
+
             return scale_fn
 
         def chooser(choices, cast_fn, index=0):
             def choose_fn(values):
                 return choices[cast_fn(values[index])]
+
             return choose_fn
 
         def timerizer(key, index=0):
@@ -381,6 +389,7 @@ class MenuItem(MenuElement):
                     return time[key]
                 else:
                     return 0
+
             return time_fn
 
         def functionizer(key, index=0):
@@ -390,6 +399,7 @@ class MenuItem(MenuElement):
                 else:
                     logging.error("Unknown function: '%s'" % str(key))
                     return values[index]
+
             return func_fn
 
         fn = None
@@ -406,14 +416,14 @@ class MenuItem(MenuElement):
                     # mapper (interpolate), cast type by last parameter type
                     fn = mapper(o[0], o[1], o[2], o[3], type(o[3]), index)
                 elif (fname == 'choose' and isinstance(o, tuple)
-                        and len(o) == 2):
+                      and len(o) == 2):
                     # boolean chooser for 2 size tuple
                     fn = chooser(o, bool, index)
                 elif fname == 'choose' and isinstance(o, tuple) and len(o) > 2:
                     # int chooser for list
                     fn = chooser(o, int, index)
                 elif (fname == 'choose' and isinstance(o, dict) and o.keys()
-                        and isinstance(o.keys()[0], (int, float, str))):
+                      and isinstance(o.keys()[0], (int, float, str))):
                     # chooser, cast type by first key type
                     fn = chooser(o, type(o.keys()[0]), index)
                 elif fname == 'scale' and isinstance(o, (float, int)):
@@ -436,7 +446,7 @@ class MenuItem(MenuElement):
     def _transform_aslist(self):
         return list(filter(None, (
             self._parse_transform(t) for t in self._aslist(
-                self.transform, flatten=False)
+            self.transform, flatten=False)
         )))
 
     def _parameter_aslist(self):
@@ -556,7 +566,7 @@ class MenuInput(MenuCommand):
         if self._input_value is None:
             return
 
-        if(self._reverse is True):
+        if (self._reverse is True):
             self._input_value -= abs(input_step)
         else:
             self._input_value += abs(input_step)
@@ -573,7 +583,7 @@ class MenuInput(MenuCommand):
         if self._input_value is None:
             return
 
-        if(self._reverse is True):
+        if (self._reverse is True):
             self._input_value += abs(input_step)
         else:
             self._input_value -= abs(input_step)
@@ -622,13 +632,13 @@ class MenuGroup(MenuContainer):
                         else MenuCursor.SELECT) + name
             else:
                 name = (name if self._manager.blink_slow_state
-                        else ' '*len(name))
+                        else ' ' * len(name))
         elif selected and self.is_editing():
             if self.use_cursor:
                 name = MenuCursor.EDIT + name
             else:
                 name = (name if self._manager.blink_fast_state
-                        else ' '*len(name))
+                        else ' ' * len(name))
         elif self.use_cursor:
             name = MenuCursor.NONE + name
         return name
@@ -679,8 +689,8 @@ class MenuGroup(MenuContainer):
             self.selected = None
         # skip readonly
         while (self.selected is not None
-                and self.selected < len(self)
-                and self._call_selected('is_readonly')):
+               and self.selected < len(self)
+               and self._call_selected('is_readonly')):
             if self.selected < len(self) - 1:
                 self.selected = (self.selected + 1)
             else:
@@ -696,8 +706,8 @@ class MenuGroup(MenuContainer):
             self.selected = None
         # skip readonly
         while (self.selected is not None
-                and self.selected >= 0
-                and self._call_selected('is_readonly')):
+               and self.selected >= 0
+               and self._call_selected('is_readonly')):
             self.selected = (self.selected - 1) if self.selected > 0 else None
         return self.selected
 
@@ -819,7 +829,7 @@ class MenuVSDCard(MenuList):
                     'gcode': "\n".join(gcode),
                     'scroll': True,
                     # mind the cursor size in width
-                    'width': (self._manager.cols-1)
+                    'width': (self._manager.cols - 1)
                 }))
 
     def populate_items(self):
@@ -1130,10 +1140,10 @@ class MenuManager:
     def timer_event(self, eventtime):
         # take next from sequence
         self.blink_fast_idx = (
-            (self.blink_fast_idx + 1) % len(BLINK_FAST_SEQUENCE)
+                (self.blink_fast_idx + 1) % len(BLINK_FAST_SEQUENCE)
         )
         self.blink_slow_idx = (
-            (self.blink_slow_idx + 1) % len(BLINK_SLOW_SEQUENCE)
+                (self.blink_slow_idx + 1) % len(BLINK_SLOW_SEQUENCE)
         )
         self.timeout_idx = (self.timeout_idx + 1) % 5  # 0.2*5 = 1s
         self.blink_fast_state = (
@@ -1199,8 +1209,10 @@ class MenuManager:
     def after(self, timeout, callback, *args):
         """Helper method for reactor.register_callback.
         The callback will be executed once after given timeout (sec)."""
+
         def callit(eventtime):
             callback(eventtime, *args)
+
         reactor = self.printer.get_reactor()
         starttime = reactor.monotonic() + max(0., float(timeout))
         reactor.register_callback(callit, starttime)
@@ -1267,11 +1279,11 @@ class MenuManager:
                         })
                         self.parameters[name].update({
                             'is_printing': (
-                                self.parameters[name]['status'] == "Printing"),
+                                    self.parameters[name]['status'] == "Printing"),
                             'is_ready': (
-                                self.parameters[name]['status'] == "Ready"),
+                                    self.parameters[name]['status'] == "Ready"),
                             'is_idle': (
-                                self.parameters[name]['status'] == "Idle")
+                                    self.parameters[name]['status'] == "Idle")
                         })
                 else:
                     self.parameters[name] = {'is_enabled': False}
@@ -1326,6 +1338,7 @@ class MenuManager:
                     logging.exception('Custom character unescape error')
             else:
                 return text
+
         return re.sub(r'\\x[0-9a-f]{2}', fixup, str(text), flags=re.IGNORECASE)
 
     def render(self, eventtime):
@@ -1334,7 +1347,7 @@ class MenuManager:
         container = self.stack_peek()
         if self.running and isinstance(container, MenuContainer):
             container.heartbeat(eventtime)
-            if(isinstance(container, MenuDeck) and not container.is_editing()):
+            if (isinstance(container, MenuDeck) and not container.is_editing()):
                 container.update_items()
             # clamps
             self.top_row = max(0, min(
@@ -1365,10 +1378,10 @@ class MenuManager:
                         name = "%s" % str(current.render(selected))
                         i = len(s)
                         if isinstance(current, MenuList):
-                            s += name[:self.cols-i-1].ljust(self.cols-i-1)
+                            s += name[:self.cols - i - 1].ljust(self.cols - i - 1)
                             s += '>'
                         else:
-                            s += name[:self.cols-i].ljust(self.cols-i)
+                            s += name[:self.cols - i].ljust(self.cols - i)
                     lines.append(s.ljust(self.cols))
         return lines
 
@@ -1395,7 +1408,7 @@ class MenuManager:
                     and current.is_editing()):
                 current.dec_value(fast_rate)
             elif (isinstance(current, MenuGroup)
-                    and current.find_prev_item() is not None):
+                  and current.find_prev_item() is not None):
                 pass
             else:
                 if self.selected == 0:
@@ -1421,7 +1434,7 @@ class MenuManager:
                     and current.is_editing()):
                 current.inc_value(fast_rate)
             elif (isinstance(current, MenuGroup)
-                    and current.find_next_item() is not None):
+                  and current.find_next_item() is not None):
                 pass
             else:
                 if self.selected >= len(container) - 1:

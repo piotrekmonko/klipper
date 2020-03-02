@@ -22,8 +22,8 @@ class SamdSERCOM:
 
         clk_pin_params = ppins.lookup_pin(self.clk_pin)
         if self.mcu is not clk_pin_params['chip']:
-           raise ppins.error("%s: SERCOM pins must be on same mcu" % (
-                    config.get_name(),))
+            raise ppins.error("%s: SERCOM pins must be on same mcu" % (
+                config.get_name(),))
         self.mcu.add_config_cmd(
             "set_sercom_pin bus=%s sercom_pin_type=clk pin=%s" % (
                 self.name, clk_pin_params['pin']))
@@ -36,6 +36,7 @@ class SamdSERCOM:
             self.mcu.add_config_cmd(
                 "set_sercom_pin bus=%s sercom_pin_type=rx pin=%s" % (
                     self.name, rx_pin_params['pin']))
+
 
 def load_config_prefix(config):
     return SamdSERCOM(config)

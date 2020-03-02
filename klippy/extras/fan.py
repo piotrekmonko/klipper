@@ -6,6 +6,7 @@
 
 FAN_MIN_TIME = 0.100
 
+
 class PrinterFan:
     def __init__(self, config, default_shutdown_speed=0.):
         self.last_fan_value = 0.
@@ -33,8 +34,10 @@ class PrinterFan:
             gcode = self.printer.lookup_object('gcode')
             gcode.register_command("M106", self.cmd_M106)
             gcode.register_command("M107", self.cmd_M107)
+
     def handle_request_restart(self, print_time):
         self.set_speed(print_time, 0.)
+
     def set_speed(self, print_time, value):
         if value < self.off_below:
             value = 0.
@@ -43,27 +46,32 @@ class PrinterFan:
             return
         print_time = max(self.last_fan_time + FAN_MIN_TIME, print_time)
         if (value and value < self.max_power and self.kick_start_time
-            and (not self.last_fan_value or value - self.last_fan_value > .5)):
+                and (not self.last_fan_value or value - self.last_fan_value > .5)):
             # Run fan at full speed for specified kick_start_time
             self.mcu_fan.set_pwm(print_time, self.max_power)
             print_time += self.kick_start_time
         self.mcu_fan.set_pwm(print_time, value)
         self.last_fan_time = print_time
         self.last_fan_value = value
+
     def get_status(self, eventtime):
         return {'speed': self.last_fan_value}
+
     def _delayed_set_speed(self, value):
         toolhead = self.printer.lookup_object('toolhead')
         toolhead.register_lookahead_callback((lambda pt:
                                               self.set_speed(pt, value)))
+
     def cmd_M106(self, params):
         # Set fan speed
         gcode = self.printer.lookup_object('gcode')
         value = gcode.get_float('S', params, 255., minval=0.) / 255.
         self._delayed_set_speed(value)
+
     def cmd_M107(self, params):
         # Turn fan off
         self._delayed_set_speed(0.)
+
 
 def load_config(config):
     return PrinterFan(config)

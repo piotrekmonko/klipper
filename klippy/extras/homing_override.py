@@ -16,6 +16,7 @@ class HomingOverride:
         self.gcode = self.printer.lookup_object('gcode')
         self.prev_G28 = self.gcode.register_command("G28", None)
         self.gcode.register_command("G28", self.cmd_G28)
+
     def cmd_G28(self, params):
         if self.in_script:
             # Was called recursively - invoke the real G28 command
@@ -53,13 +54,14 @@ class HomingOverride:
         toolhead.set_position(pos, homing_axes=homing_axes)
         self.gcode.reset_last_position()
         # Perform homing
-        kwparams = { 'printer': self.template.create_status_wrapper() }
+        kwparams = {'printer': self.template.create_status_wrapper()}
         kwparams['params'] = params
         try:
             self.in_script = True
             self.template.run_gcode_from_command(kwparams)
         finally:
             self.in_script = False
+
 
 def load_config(config):
     return HomingOverride(config)

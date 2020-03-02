@@ -3,8 +3,8 @@
 # Copyright (C) 2016-2018  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, bisect
-
+import bisect
+import logging
 
 ######################################################################
 # Interface between MCU adc and heater temperature callbacks
@@ -15,6 +15,7 @@ SAMPLE_COUNT = 8
 REPORT_TIME = 0.300
 RANGE_CHECK_COUNT = 4
 
+
 # Interface between ADC and heater temperature callbacks
 class PrinterADCtoTemperature:
     def __init__(self, config, adc_convert):
@@ -24,13 +25,17 @@ class PrinterADCtoTemperature:
         self.mcu_adc.setup_adc_callback(REPORT_TIME, self.adc_callback)
         query_adc = config.get_printer().try_load_module(config, 'query_adc')
         query_adc.register_adc(config.get_name(), self.mcu_adc)
+
     def setup_callback(self, temperature_callback):
         self.temperature_callback = temperature_callback
+
     def get_report_time_delta(self):
         return REPORT_TIME
+
     def adc_callback(self, read_time, read_value):
         temp = self.adc_convert.calc_temp(read_value)
         self.temperature_callback(read_time + SAMPLE_COUNT * SAMPLE_TIME, temp)
+
     def setup_minmax(self, min_temp, max_temp):
         adc_range = [self.adc_convert.calc_adc(t) for t in [min_temp, max_temp]]
         self.mcu_adc.setup_minmax(SAMPLE_TIME, SAMPLE_COUNT,
@@ -67,10 +72,12 @@ class LinearInterpolate:
             raise ValueError("need at least two samples")
         self.keys.append(9999999999999.)
         self.slopes.append(self.slopes[-1])
+
     def interpolate(self, key):
         pos = bisect.bisect(self.keys, key)
         gain, offset = self.slopes[pos]
         return key * gain + offset
+
     def reverse_interpolate(self, value):
         values = [key * gain + offset for key, (gain, offset) in zip(
             self.keys, self.slopes)]
@@ -107,6 +114,7 @@ class LinearVoltage:
         self.calc_temp = li.interpolate
         self.calc_adc = li.reverse_interpolate
 
+
 # Custom defined sensors from the config file
 class CustomLinearVoltage:
     def __init__(self, config):
@@ -118,6 +126,7 @@ class CustomLinearVoltage:
                 break
             v = config.getfloat("voltage%d" % (i,))
             self.params.append((t, v))
+
     def create(self, config):
         lv = LinearVoltage(config, self.params)
         return PrinterADCtoTemperature(config, lv)
@@ -136,15 +145,18 @@ class LinearResistance:
         except ValueError as e:
             raise config.error("adc_temperature %s in heater %s" % (
                 str(e), config.get_name()))
+
     def calc_temp(self, adc):
         # Calculate temperature from adc
         adc = max(.00001, min(.99999, adc))
         r = self.pullup * adc / (1.0 - adc)
         return self.li.interpolate(r)
+
     def calc_adc(self, temp):
         # Calculate adc reading from a temperature
         r = self.li.reverse_interpolate(temp)
         return r / (self.pullup + r)
+
 
 # Custom defined sensors from the config file
 class CustomLinearResistance:
@@ -157,6 +169,7 @@ class CustomLinearResistance:
                 break
             r = config.getfloat("resistance%d" % (i,))
             self.samples.append((r, t))
+
     def create(self, config):
         lr = LinearResistance(config, self.samples)
         return PrinterADCtoTemperature(config, lr)
@@ -174,7 +187,6 @@ AD595 = [
     (320., 3.227), (340., 3.434), (360., 3.641), (380., 3.849), (400., 4.057),
     (420., 4.266), (440., 4.476), (460., 4.686), (480., 4.896)
 ]
-
 
 AD8494 = [
     (-180, -0.714), (-160, -0.658), (-140, -0.594), (-120, -0.523),
@@ -266,6 +278,7 @@ PT100 = [
     (1000, 4.48), (1100, 4.73)
 ]
 
+
 def load_config(config):
     # Register default sensors
     pheater = config.get_printer().lookup_object("heater")
@@ -278,6 +291,7 @@ def load_config(config):
         func = (lambda config, params=params:
                 PrinterADCtoTemperature(config, LinearVoltage(config, params)))
         pheater.add_sensor_factory(sensor_type, func)
+
 
 def load_config_prefix(config):
     if config.get("resistance1", None) is None:

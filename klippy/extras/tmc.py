@@ -3,7 +3,8 @@
 # Copyright (C) 2018-2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, collections
+import collections
+import logging
 
 
 ######################################################################
@@ -14,6 +15,7 @@ import logging, collections
 def ffs(mask):
     return (mask & -mask).bit_length() - 1
 
+
 class FieldHelper:
     def __init__(self, all_fields, signed_fields=[], field_formatters={},
                  registers=None):
@@ -23,10 +25,12 @@ class FieldHelper:
         self.registers = registers
         if self.registers is None:
             self.registers = collections.OrderedDict()
-        self.field_to_register = { f: r for r, fields in self.all_fields.items()
-                                   for f in fields }
+        self.field_to_register = {f: r for r, fields in self.all_fields.items()
+                                  for f in fields}
+
     def lookup_register(self, field_name, default=None):
         return self.field_to_register.get(field_name, default)
+
     def get_field(self, field_name, reg_value=None, reg_name=None):
         # Returns value of the register field
         if reg_name is None:
@@ -35,9 +39,10 @@ class FieldHelper:
             reg_value = self.registers.get(reg_name, 0)
         mask = self.all_fields[reg_name][field_name]
         field_value = (reg_value & mask) >> ffs(mask)
-        if field_name in self.signed_fields and ((reg_value & mask)<<1) > mask:
+        if field_name in self.signed_fields and ((reg_value & mask) << 1) > mask:
             field_value -= (1 << field_value.bit_length())
         return field_value
+
     def set_field(self, field_name, field_value, reg_value=None, reg_name=None):
         # Returns register value with field bits filled with supplied value
         if reg_name is None:
@@ -48,6 +53,7 @@ class FieldHelper:
         new_value = (reg_value & ~mask) | ((field_value << ffs(mask)) & mask)
         self.registers[reg_name] = new_value
         return new_value
+
     def set_config_field(self, config, field_name, default):
         # Allow a field to be set from the config file
         config_name = "driver_" + field_name.upper()
@@ -58,10 +64,11 @@ class FieldHelper:
             val = config.getboolean(config_name, default)
         elif field_name in self.signed_fields:
             val = config.getint(config_name, default,
-                                minval=-(maxval//2 + 1), maxval=maxval//2)
+                                minval=-(maxval // 2 + 1), maxval=maxval // 2)
         else:
             val = config.getint(config_name, default, minval=0, maxval=maxval)
         return self.set_field(field_name, val)
+
     def pretty_format(self, reg_name, reg_value):
         # Provide a string description of a register
         reg_fields = self.all_fields.get(reg_name, {})
@@ -98,10 +105,12 @@ class TMCCommandHelper:
         self.gcode.register_mux_command(
             "INIT_TMC", "STEPPER", self.name,
             self.cmd_INIT_TMC, desc=self.cmd_INIT_TMC_help)
+
     def _init_registers(self, print_time=None):
         # Send registers
         for reg_name, val in self.fields.registers.items():
             self.mcu_tmc.set_register(reg_name, val, print_time)
+
     def _handle_connect(self):
         # Check for soft stepper enable/disable
         stepper_enable = self.printer.lookup_object('stepper_enable')
@@ -125,12 +134,16 @@ class TMCCommandHelper:
                     raise self.printer.config_error(str(e))
                 reactor = self.printer.get_reactor()
                 reactor.pause(reactor.monotonic() + 1.)
+
     cmd_INIT_TMC_help = "Initialize TMC stepper driver registers"
+
     def cmd_INIT_TMC(self, params):
         logging.info("INIT_TMC %s", self.name)
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
         self._init_registers(print_time)
+
     cmd_SET_TMC_FIELD_help = "Set a register field of a TMC driver"
+
     def cmd_SET_TMC_FIELD(self, params):
         if 'FIELD' not in params or 'VALUE' not in params:
             raise self.gcode.error("Invalid command format")
@@ -142,18 +155,21 @@ class TMCCommandHelper:
         reg_val = self.fields.set_field(field_name, value)
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
         self.mcu_tmc.set_register(reg_name, reg_val, print_time)
+
     # Stepper enable/disable via comms
     def _do_enable(self, print_time, is_enable):
         toff_val = 0
         if is_enable:
             toff_val = self.toff
-            print_time -= 0.100 # Schedule slightly before deadline
+            print_time -= 0.100  # Schedule slightly before deadline
         val = self.fields.set_field("toff", toff_val)
         reg_name = self.fields.lookup_register("toff")
         self.mcu_tmc.set_register(reg_name, val, print_time)
+
     def handle_stepper_enable(self, print_time, is_enable):
         cb = (lambda ev: self._do_enable(print_time, is_enable))
         self.printer.get_reactor().register_callback(cb)
+
     # DUMP_TMC support
     def setup_register_dump(self, read_registers, read_translate=None):
         self.read_registers = read_registers
@@ -161,7 +177,9 @@ class TMCCommandHelper:
         self.gcode.register_mux_command(
             "DUMP_TMC", "STEPPER", self.name,
             self.cmd_DUMP_TMC, desc=self.cmd_DUMP_TMC_help)
+
     cmd_DUMP_TMC_help = "Read and display TMC stepper driver registers"
+
     def cmd_DUMP_TMC(self, params):
         logging.info("DUMP_TMC %s", self.name)
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
@@ -196,6 +214,7 @@ class TMCVirtualPinHelper:
         name_parts = config.get_name().split()
         ppins = self.printer.lookup_object("pins")
         ppins.register_chip("%s_%s" % (name_parts[0], name_parts[-1]), self)
+
     def setup_pin(self, pin_type, pin_params):
         # Validate pin
         ppins = self.printer.lookup_object('pins')
@@ -219,6 +238,7 @@ class TMCVirtualPinHelper:
                                             self.handle_homing_move_end)
         self.mcu_endstop = ppins.setup_pin('endstop', self.diag_pin)
         return self.mcu_endstop
+
     def handle_homing_move_begin(self, endstops):
         if self.mcu_endstop not in endstops:
             return
@@ -233,6 +253,7 @@ class TMCVirtualPinHelper:
             val = self.fields.set_field("diag1_stall", 1)
         self.mcu_tmc.set_register("GCONF", val)
         self.mcu_tmc.set_register("TCOOLTHRS", 0xfffff)
+
     def handle_homing_move_end(self, endstops):
         if self.mcu_endstop not in endstops:
             return
@@ -261,8 +282,10 @@ class TMCMicrostepHelper:
         mres = config.getchoice('microsteps', steps)
         self.fields.set_field("MRES", mres)
         self.fields.set_field("intpol", config.getboolean("interpolate", True))
+
     def get_microsteps(self):
         return 256 >> self.fields.get_field("MRES")
+
     def get_phase(self):
         field_name = "MSCNT"
         if self.fields.lookup_register(field_name, None) is None:
@@ -271,6 +294,7 @@ class TMCMicrostepHelper:
         reg = self.mcu_tmc.get_register(self.fields.lookup_register(field_name))
         mscnt = self.fields.get_field(field_name, reg)
         return (1023 - mscnt) >> self.fields.get_field("MRES")
+
 
 # Helper to configure "stealthchop" mode
 def TMCStealthchopHelper(config, mcu_tmc, tmc_freq):

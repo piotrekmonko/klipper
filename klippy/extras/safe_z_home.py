@@ -26,7 +26,7 @@ class SafeZHoming:
 
         if config.has_section("homing_override"):
             raise config.error("homing_override and safe_z_homing cannot"
-                               +" be used simultaneously")
+                               + " be used simultaneously")
 
     def cmd_G28(self, params):
         toolhead = self.printer.lookup_object('toolhead')
@@ -97,6 +97,7 @@ class SafeZHoming:
         pos[2] = pos[2] + self.z_hop
         toolhead.move(pos, self.z_hop_speed)
         self.gcode.reset_last_position()
+
 
 def load_config(config):
     return SafeZHoming(config)

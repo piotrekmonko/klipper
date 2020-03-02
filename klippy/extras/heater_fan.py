@@ -7,6 +7,7 @@ import fan
 
 PIN_MIN_TIME = 0.100
 
+
 class PrinterHeaterFan:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -17,14 +18,17 @@ class PrinterHeaterFan:
         self.fan = fan.PrinterFan(config, default_shutdown_speed=1.)
         self.mcu = self.fan.mcu_fan.get_mcu()
         self.fan_speed = config.getfloat("fan_speed", 1., minval=0., maxval=1.)
+
     def handle_ready(self):
         pheater = self.printer.lookup_object('heater')
         self.heaters = [pheater.lookup_heater(n.strip())
                         for n in self.heater_name.split(',')]
         reactor = self.printer.get_reactor()
         reactor.register_timer(self.callback, reactor.NOW)
+
     def get_status(self, eventtime):
         return self.fan.get_status(eventtime)
+
     def callback(self, eventtime):
         power = 0.
         for heater in self.heaters:
@@ -34,6 +38,7 @@ class PrinterHeaterFan:
         print_time = self.mcu.estimated_print_time(eventtime) + PIN_MIN_TIME
         self.fan.set_speed(print_time, power)
         return eventtime + 1.
+
 
 def load_config_prefix(config):
     return PrinterHeaterFan(config)

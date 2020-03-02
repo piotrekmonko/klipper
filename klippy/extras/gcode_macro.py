@@ -3,7 +3,10 @@
 # Copyright (C) 2018-2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import traceback, logging, ast
+import ast
+import logging
+import traceback
+
 import jinja2
 
 
@@ -17,6 +20,7 @@ class GetStatusWrapper:
         self.printer = printer
         self.eventtime = eventtime
         self.cache = {}
+
     def __getitem__(self, val):
         sval = str(val).strip()
         if sval in self.cache:
@@ -28,16 +32,19 @@ class GetStatusWrapper:
             self.eventtime = self.printer.get_reactor().monotonic()
         self.cache[sval] = res = dict(po.get_status(self.eventtime))
         return res
+
     def __contains__(self, val):
         try:
             self.__getitem__(val)
         except KeyError as e:
             return False
         return True
+
     def __iter__(self):
         for name, obj in self.printer.lookup_objects():
             if self.__contains__(name):
                 yield name
+
 
 # Wrapper around a Jinja2 template
 class TemplateWrapper:
@@ -49,11 +56,13 @@ class TemplateWrapper:
             self.template = env.from_string(script)
         except Exception as e:
             msg = "Error loading template '%s': %s" % (
-                 name, traceback.format_exception_only(type(e), e)[-1])
+                name, traceback.format_exception_only(type(e), e)[-1])
             logging.exception(msg)
             raise printer.config_error(msg)
+
     def create_status_wrapper(self, eventtime=None):
         return GetStatusWrapper(self.printer, eventtime)
+
     def render(self, context=None):
         if context is None:
             context = {'printer': self.create_status_wrapper()}
@@ -64,14 +73,17 @@ class TemplateWrapper:
                 self.name, traceback.format_exception_only(type(e), e)[-1])
             logging.exception(msg)
             raise self.gcode.error(msg)
+
     def run_gcode_from_command(self, context=None):
         self.gcode.run_script_from_command(self.render(context))
+
 
 # Main gcode macro template tracking
 class PrinterGCodeMacro:
     def __init__(self, config):
         self.printer = config.get_printer()
         self.env = jinja2.Environment('{%', '%}', '{', '}')
+
     def load_template(self, config, option, default=None):
         name = "%s:%s" % (config.get_name(), option)
         if default is None:
@@ -79,6 +91,7 @@ class PrinterGCodeMacro:
         else:
             script = config.get(option, default)
         return TemplateWrapper(self.printer, self.env, name, script)
+
 
 def load_config(config):
     return PrinterGCodeMacro(config)
@@ -99,7 +112,7 @@ class GCodeMacro:
         self.rename_existing = config.get("rename_existing", None)
         if self.rename_existing is not None:
             if (self.gcode.is_traditional_gcode(self.alias)
-                != self.gcode.is_traditional_gcode(self.rename_existing)):
+                    != self.gcode.is_traditional_gcode(self.rename_existing)):
                 raise config.error(
                     "G-Code macro rename of different types ('%s' vs '%s')"
                     % (self.alias, self.rename_existing))
@@ -113,8 +126,8 @@ class GCodeMacro:
                                         desc=self.cmd_SET_GCODE_VARIABLE_help)
         self.in_script = False
         prefix = 'default_parameter_'
-        self.kwparams = { o[len(prefix):].upper(): config.get(o)
-                          for o in config.get_prefix_options(prefix) }
+        self.kwparams = {o[len(prefix):].upper(): config.get(o)
+                         for o in config.get_prefix_options(prefix)}
         self.variables = {}
         prefix = 'variable_'
         for option in config.get_prefix_options(prefix):
@@ -125,6 +138,7 @@ class GCodeMacro:
                 raise config.error(
                     "Option '%s' in section '%s' is not a valid literal" % (
                         option, config.get_name()))
+
     def handle_connect(self):
         prev_cmd = self.gcode.register_command(self.alias, None)
         if prev_cmd is None:
@@ -135,9 +149,12 @@ class GCodeMacro:
         self.gcode.register_command(self.rename_existing, prev_cmd, desc=pdesc)
         self.gcode.register_command(self.alias, self.cmd, desc=self.cmd_desc)
         return dict(self.variables)
+
     def get_status(self, eventtime):
         return dict(self.variables)
+
     cmd_SET_GCODE_VARIABLE_help = "Set the value of a G-Code macro variable"
+
     def cmd_SET_GCODE_VARIABLE(self, params):
         variable = self.gcode.get_str('VARIABLE', params)
         value = self.gcode.get_str('VALUE', params)
@@ -153,7 +170,9 @@ class GCodeMacro:
             raise self.gcode.error("Unable to parse '%s' as a literal" % (
                 value,))
         self.variables[variable] = literal
+
     cmd_desc = "G-Code macro"
+
     def cmd(self, params):
         if self.in_script:
             raise self.gcode.error(
@@ -168,6 +187,7 @@ class GCodeMacro:
             self.template.run_gcode_from_command(kwparams)
         finally:
             self.in_script = False
+
 
 def load_config_prefix(config):
     return GCodeMacro(config)

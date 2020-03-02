@@ -7,8 +7,9 @@
 respond_types = {
     'echo': 'echo:',
     'command': '//',
-    'error' : '!!',
+    'error': '!!',
 }
+
 
 class HostResponder:
     def __init__(self, config):
@@ -23,6 +24,7 @@ class HostResponder:
         self.gcode.register_command(
             'M118', self.cmd_M118, True, desc=self.cmd_M118_help)
         self.gcode.register_command('RESPOND', self.cmd_RESPOND, True)
+
     def cmd_M118(self, params):
         if '#original' in params:
             msg = params['#original']
@@ -35,13 +37,14 @@ class HostResponder:
                 msg = msg[5:]
             else:
                 msg = ''
-            self.gcode.respond("%s %s" %(self.default_prefix, msg))
+            self.gcode.respond("%s %s" % (self.default_prefix, msg))
+
     def cmd_RESPOND(self, params):
         respond_type = self.gcode.get_str('TYPE', params, None)
         prefix = self.default_prefix
-        if(respond_type != None):
+        if (respond_type != None):
             respond_type = respond_type.lower()
-            if(respond_type in respond_types):
+            if (respond_type in respond_types):
                 prefix = respond_types[respond_type]
             else:
                 raise self.gcode.error(
@@ -49,7 +52,8 @@ class HostResponder:
                     " of 'echo', 'command', or 'error'" % (respond_type,))
         prefix = self.gcode.get_str('PREFIX', params, prefix)
         msg = self.gcode.get_str('MSG', params, '')
-        self.gcode.respond("%s %s" %(prefix, msg))
+        self.gcode.respond("%s %s" % (prefix, msg))
+
 
 def load_config(config):
     return HostResponder(config)

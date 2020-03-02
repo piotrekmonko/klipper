@@ -4,8 +4,9 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
-import bus
 import logging
+
+import bus
 
 REPORT_TIME = .8
 BME280_CHIP_ADDR = 0x76
@@ -21,6 +22,7 @@ STATUS_MEASURING = 1 << 3
 STATUS_IM_UPDATE = 1
 MODE = 1
 
+
 class BME280:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -34,7 +36,7 @@ class BME280:
         self.temp = self.pressure = self.humidity = self.t_fine = 0.
         self.max_sample_time = \
             (1.25 + (2.3 * self.os_temp) + ((2.3 * self.os_pres) +
-             .575) + ((2.3 * self.os_hum) + .575)) / 1000
+                                            .575) + ((2.3 * self.os_hum) + .575)) / 1000
         self.dig = None
         self.sample_timer = self.reactor.register_timer(self._sample_bme280)
         self.printer.add_object("bme280 " + self.name, self)
@@ -90,9 +92,9 @@ class BME280:
             for i in range(cnt):
                 key = prefix + str(i + 1)
                 if key in unsigned_keys:
-                    dig[key] = get_unsigned_short(c1[idx:idx+2])
+                    dig[key] = get_unsigned_short(c1[idx:idx + 2])
                 else:
-                    dig[key] = get_signed_short(c1[idx:idx+2])
+                    dig[key] = get_signed_short(c1[idx:idx + 2])
                 idx += 2
         dig['H1'] = c1[25] & 0xFF
         dig['H2'] = get_signed_short(c2[0:2])
@@ -140,8 +142,8 @@ class BME280:
         dig = self.dig
         var1 = ((raw_temp / 16384. - (dig['T1'] / 1024.)) * dig['T2'])
         var2 = (
-            ((raw_temp / 131072.) - (dig['T1'] / 8192.)) *
-            ((raw_temp / 131072.) - (dig['T1'] / 8192.)) * dig['T3'])
+                ((raw_temp / 131072.) - (dig['T1'] / 8192.)) *
+                ((raw_temp / 131072.) - (dig['T1'] / 8192.)) * dig['T3'])
         self.t_fine = var1 + var2
         return self.t_fine / 5120.0
 
@@ -168,9 +170,9 @@ class BME280:
         t_fine = self.t_fine
         humidity = t_fine - 76800.
         h1 = (
-            raw_humidity - (dig['H4'] * 64. + dig['H5'] / 16384. * humidity))
+                raw_humidity - (dig['H4'] * 64. + dig['H5'] / 16384. * humidity))
         h2 = (dig['H2'] / 65536. * (1. + dig['H6'] / 67108864. * humidity *
-              (1. + dig['H3'] / 67108864. * humidity)))
+                                    (1. + dig['H3'] / 67108864. * humidity)))
         humidity = h1 * h2
         humidity = humidity * (1. - dig['H1'] * humidity / 524288.)
         return min(100., max(0., humidity))

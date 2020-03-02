@@ -3,10 +3,14 @@
 # Copyright (C) 2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import stepper, homing, force_move, chelper
+import chelper
+import force_move
+import homing
+import stepper
 
 ENDSTOP_SAMPLE_TIME = .000015
 ENDSTOP_SAMPLE_COUNT = 4
+
 
 class ManualStepper:
     def __init__(self, config):
@@ -37,6 +41,7 @@ class ManualStepper:
         self.gcode.register_mux_command('MANUAL_STEPPER', "STEPPER",
                                         stepper_name, self.cmd_MANUAL_STEPPER,
                                         desc=self.cmd_MANUAL_STEPPER_help)
+
     def sync_print_time(self):
         toolhead = self.printer.lookup_object('toolhead')
         print_time = toolhead.get_last_move_time()
@@ -44,6 +49,7 @@ class ManualStepper:
             toolhead.dwell(self.next_cmd_time - print_time)
         else:
             self.next_cmd_time = print_time
+
     def do_enable(self, enable):
         self.sync_print_time()
         stepper_enable = self.printer.lookup_object('stepper_enable')
@@ -56,8 +62,10 @@ class ManualStepper:
                 se = stepper_enable.lookup_enable(s.get_name())
                 se.motor_disable(self.next_cmd_time)
         self.sync_print_time()
+
     def do_set_position(self, setpos):
         self.rail.set_position([setpos, 0., 0.])
+
     def do_move(self, movepos, speed, accel):
         self.sync_print_time()
         cp = self.rail.get_commanded_position()
@@ -74,6 +82,7 @@ class ManualStepper:
         toolhead = self.printer.lookup_object('toolhead')
         toolhead.note_kinematic_activity(self.next_cmd_time)
         self.sync_print_time()
+
     def do_homing_move(self, movepos, speed, accel, triggered, check_trigger):
         if not self.can_home:
             raise self.gcode.error("No endstop for this manual stepper")
@@ -97,7 +106,9 @@ class ManualStepper:
         self.sync_print_time()
         if error is not None:
             raise homing.CommandError(error)
+
     cmd_MANUAL_STEPPER_help = "Command a manually configured stepper"
+
     def cmd_MANUAL_STEPPER(self, params):
         if 'ENABLE' in params:
             self.do_enable(self.gcode.get_int('ENABLE', params))
@@ -114,6 +125,7 @@ class ManualStepper:
         elif 'MOVE' in params:
             movepos = self.gcode.get_float('MOVE', params)
             self.do_move(movepos, speed, accel)
+
 
 def load_config_prefix(config):
     return ManualStepper(config)

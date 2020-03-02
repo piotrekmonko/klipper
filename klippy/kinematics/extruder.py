@@ -3,8 +3,13 @@
 # Copyright (C) 2016-2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math, logging
-import stepper, homing, chelper
+import logging
+import math
+
+import chelper
+import homing
+import stepper
+
 
 class PrinterExtruder:
     def __init__(self, config, extruder_num):
@@ -21,8 +26,8 @@ class PrinterExtruder:
         self.nozzle_diameter = config.getfloat('nozzle_diameter', above=0.)
         filament_diameter = config.getfloat(
             'filament_diameter', minval=self.nozzle_diameter)
-        self.filament_area = math.pi * (filament_diameter * .5)**2
-        def_max_cross_section = 4. * self.nozzle_diameter**2
+        self.filament_area = math.pi * (filament_diameter * .5) ** 2
+        def_max_cross_section = 4. * self.nozzle_diameter ** 2
         def_max_extrude_ratio = def_max_cross_section / self.filament_area
         max_cross_section = config.getfloat(
             'max_extrude_cross_section', def_max_cross_section, above=0.)
@@ -72,8 +77,10 @@ class PrinterExtruder:
         gcode.register_mux_command("ACTIVATE_EXTRUDER", "EXTRUDER",
                                    self.name, self.cmd_ACTIVATE_EXTRUDER,
                                    desc=self.cmd_ACTIVATE_EXTRUDER_help)
+
     def update_move_time(self, flush_time):
         self.trapq_free_moves(self.trapq, flush_time)
+
     def _set_pressure_advance(self, pressure_advance, smooth_time):
         old_smooth_time = self.pressure_advance_smooth_time
         if not self.pressure_advance:
@@ -87,18 +94,24 @@ class PrinterExtruder:
         self.extruder_set_smooth_time(self.sk_extruder, new_smooth_time)
         self.pressure_advance = pressure_advance
         self.pressure_advance_smooth_time = smooth_time
+
     def get_status(self, eventtime):
         return dict(self.heater.get_status(eventtime),
                     pressure_advance=self.pressure_advance,
                     smooth_time=self.pressure_advance_smooth_time)
+
     def get_name(self):
         return self.name
+
     def get_heater(self):
         return self.heater
+
     def get_trapq(self):
         return self.trapq
+
     def stats(self, eventtime):
         return self.heater.stats(eventtime)
+
     def check_move(self, move):
         axis_r = move.axes_r[3]
         if not self.heater.can_extrude:
@@ -126,11 +139,13 @@ class PrinterExtruder:
                 "Move exceeds maximum extrusion (%.3fmm^2 vs %.3fmm^2)\n"
                 "See the 'max_extrude_cross_section' config option for details"
                 % (area, self.max_extrude_ratio * self.filament_area))
+
     def calc_junction(self, prev_move, move):
         diff_r = move.axes_r[3] - prev_move.axes_r[3]
         if diff_r:
-            return (self.instant_corner_v / abs(diff_r))**2
+            return (self.instant_corner_v / abs(diff_r)) ** 2
         return move.max_cruise_v2
+
     def move(self, print_time, move):
         axis_r = move.axes_r[3]
         accel = move.accel * axis_r
@@ -145,6 +160,7 @@ class PrinterExtruder:
                           move.start_pos[3], 0., 0.,
                           1., pressure_advance, 0.,
                           start_v, cruise_v, accel)
+
     def cmd_M104(self, params, wait=False):
         # Set Extruder Temperature
         gcode = self.printer.lookup_object('gcode')
@@ -165,13 +181,17 @@ class PrinterExtruder:
         heater.set_temp(temp)
         if wait and temp:
             gcode.wait_for_temperature(heater)
+
     def cmd_M109(self, params):
         # Set Extruder Temperature and Wait
         self.cmd_M104(params, wait=True)
+
     cmd_SET_PRESSURE_ADVANCE_help = "Set pressure advance parameters"
+
     def cmd_default_SET_PRESSURE_ADVANCE(self, params):
         extruder = self.printer.lookup_object('toolhead').get_extruder()
         extruder.cmd_SET_PRESSURE_ADVANCE(params)
+
     def cmd_SET_PRESSURE_ADVANCE(self, params):
         gcode = self.printer.lookup_object('gcode')
         pressure_advance = gcode.get_float(
@@ -185,7 +205,9 @@ class PrinterExtruder:
                    pressure_advance, smooth_time))
         self.printer.set_rollover_info(self.name, "%s: %s" % (self.name, msg))
         gcode.respond_info(msg, log=False)
+
     cmd_ACTIVATE_EXTRUDER_help = "Change the active extruder"
+
     def cmd_ACTIVATE_EXTRUDER(self, params):
         gcode = self.printer.lookup_object('gcode')
         toolhead = self.printer.lookup_object('toolhead')
@@ -197,19 +219,25 @@ class PrinterExtruder:
         toolhead.set_extruder(self, self.stepper.get_commanded_position())
         self.printer.send_event("extruder:activate_extruder")
 
+
 # Dummy extruder class used when a printer has no extruder at all
 class DummyExtruder:
     def update_move_time(self, flush_time):
         pass
+
     def check_move(self, move):
         raise homing.EndstopMoveError(
             move.end_pos, "Extrude when no extruder present")
+
     def calc_junction(self, prev_move, move):
         return move.max_cruise_v2
+
     def get_name(self):
         return ""
+
     def get_heater(self):
         raise homing.CommandError("Extruder not configured")
+
 
 def add_printer_objects(config):
     printer = config.get_printer()

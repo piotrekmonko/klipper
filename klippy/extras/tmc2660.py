@@ -4,15 +4,17 @@
 # Copyright (C) 2019  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math, logging
-import bus, tmc
+import math
+
+import bus
+import tmc
 
 Registers = {
     "DRVCONF": 0xE, "SGCSCONF": 0xC, "SMARTEN": 0xA,
     "CHOPCONF": 0x8, "DRVCTRL": 0x0
 }
 
-ReadRegisters = [ "READRSP@RDSEL0", "READRSP@RDSEL1", "READRSP@RDSEL2" ]
+ReadRegisters = ["READRSP@RDSEL0", "READRSP@RDSEL1", "READRSP@RDSEL2"]
 
 Fields = {}
 
@@ -33,7 +35,7 @@ Fields["CHOPCONF"] = {
 }
 
 Fields["SMARTEN"] = {
-    "SEMIN" : 0x0f,
+    "SEMIN": 0x0f,
     "SEUP": 0x03 << 5,
     "SEMAX": 0x0f << 8,
     "SEDN": 0x03 << 13,
@@ -99,7 +101,7 @@ SignedFields = ["SGT"]
 FieldFormatters = {
     "MRES": (lambda v: "%d(%dusteps)" % (v, 0x100 >> v)),
     "DEDGE": (lambda v:
-        "1(Both Edges Active)" if v else "0(Only Rising Edge active)"),
+              "1(Both Edges Active)" if v else "0(Only Rising Edge active)"),
     "intpol": (lambda v: "1(On)" if v else "0(Off)"),
     "toff": (lambda v: ("%d" % v) if v else "0(Driver Disabled!)"),
     "CHM": (lambda v: "1(constant toff)" if v else "0(spreadCycle)"),
@@ -107,7 +109,7 @@ FieldFormatters = {
     "VSENSE": (lambda v: "%d(%dmV)" % (v, 165 if v else 305)),
     "SDOFF": (lambda v: "1(Step/Dir disabled" if v else "0(Step/dir enabled)"),
     "DISS2G": (lambda v: "%d(Short to GND protection %s)" % (v,
-                                          "disabled" if v else "enabled")),
+                                                             "disabled" if v else "enabled")),
     "MSTEP": (lambda v: "%d(%d, OA1 %s OA2)" % (v, v & 0xff,
                                                 "<=" if v & 0x100 else "=>")),
     "SG": (lambda v: "%d(%s)" % (v, "Stall!" if v else "No Stall!")),
@@ -120,12 +122,12 @@ FieldFormatters = {
     "STST": (lambda v: "1(Standstill detected!)" if v else ""),
 }
 
-
 ######################################################################
 # TMC stepper current config helper
 ######################################################################
 
 MAX_CURRENT = 2.400
+
 
 class TMC2660CurrentHelper:
     def __init__(self, config, mcu_tmc):
@@ -169,7 +171,7 @@ class TMC2660CurrentHelper:
         return vsense, cs
 
     def handle_printing(self, print_time):
-        print_time -= 0.100 # Schedule slightly before deadline
+        print_time -= 0.100  # Schedule slightly before deadline
         self.printer.get_reactor().register_callback(
             (lambda ev: self.set_current(print_time, self.current)))
 
@@ -188,6 +190,7 @@ class TMC2660CurrentHelper:
             self.mcu_tmc.set_register("DRVCONF", val, print_time)
 
     cmd_SET_TMC_CURRENT_help = "Set the current of a TMC2660 driver"
+
     def cmd_SET_TMC_CURRENT(self, params):
         gcode = self.printer.lookup_object('gcode')
         if 'CURRENT' in params:
@@ -210,8 +213,10 @@ class MCU_TMC2660_SPI:
         self.spi = bus.MCU_SPI_from_config(config, 0, default_speed=4000000)
         self.name_to_reg = name_to_reg
         self.fields = fields
+
     def get_fields(self):
         return self.fields
+
     def get_register(self, reg_name):
         reg = self.name_to_reg["DRVCONF"]
         val = self.fields.set_field("RDSEL", ReadRegisters.index(reg_name))
@@ -222,6 +227,7 @@ class MCU_TMC2660_SPI:
             params = self.spi.spi_transfer(msg)
         pr = bytearray(params['response'])
         return (pr[0] << 16) | (pr[1] << 8) | pr[2]
+
     def set_register(self, reg_name, val, print_time=None):
         minclock = 0
         if print_time is not None:
@@ -240,7 +246,7 @@ class TMC2660:
     def __init__(self, config):
         # Setup mcu communication
         self.fields = tmc.FieldHelper(Fields, SignedFields, FieldFormatters)
-        self.fields.set_field("SDOFF", 0) # Access DRVCTRL in step/dir mode
+        self.fields.set_field("SDOFF", 0)  # Access DRVCTRL in step/dir mode
         self.mcu_tmc = MCU_TMC2660_SPI(config, Registers, self.fields)
         # Register commands
         cmdhelper = tmc.TMCCommandHelper(config, self.mcu_tmc)
@@ -280,6 +286,7 @@ class TMC2660:
         set_config_field(config, "SLPL", 0)
         set_config_field(config, "DISS2G", 0)
         set_config_field(config, "TS2G", 3)
+
 
 def load_config_prefix(config):
     return TMC2660(config)

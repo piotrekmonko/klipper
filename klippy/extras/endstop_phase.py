@@ -3,10 +3,13 @@
 # Copyright (C) 2016-2018  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math, logging
+import logging
+import math
+
 import homing
 
 TRINAMIC_DRIVERS = ["tmc2130", "tmc2208", "tmc2209", "tmc2660", "tmc5160"]
+
 
 class EndstopPhase:
     def __init__(self, config):
@@ -26,6 +29,7 @@ class EndstopPhase:
         self.endstop_accuracy = config.getfloat('endstop_accuracy', None,
                                                 above=0.)
         self.step_dist = self.endstop_phase_accuracy = None
+
     def handle_connect(self):
         # Determine number of stepper phases
         for driver in TRINAMIC_DRIVERS:
@@ -51,7 +55,7 @@ class EndstopPhase:
         self.step_dist = force_move.lookup_stepper(self.name).get_step_dist()
         # Determine endstop accuracy
         if self.endstop_accuracy is None:
-            self.endstop_phase_accuracy = self.phases//2 - 1
+            self.endstop_phase_accuracy = self.phases // 2 - 1
         elif self.endstop_phase is not None:
             self.endstop_phase_accuracy = int(
                 math.ceil(self.endstop_accuracy * .5 / self.step_dist))
@@ -64,6 +68,7 @@ class EndstopPhase:
         if self.printer.get_start_args().get('debugoutput') is not None:
             self.endstop_phase_accuracy = self.phases
         self.phase_history = [0] * self.phases
+
     def align_endstop(self, pos):
         if not self.endstop_align_zero or self.endstop_phase is None:
             return pos
@@ -74,6 +79,7 @@ class EndstopPhase:
                         - half_microsteps) * self.step_dist
         full_step = microsteps * self.step_dist
         return int(pos / full_step + .5) * full_step + phase_offset
+
     def get_homed_offset(self, stepper):
         if self.get_phase is not None:
             try:
@@ -99,6 +105,7 @@ class EndstopPhase:
                 "Endstop %s incorrect phase (got %d vs %d)" % (
                     self.name, phase, self.endstop_phase))
         return delta * self.step_dist
+
     def handle_home_rails_end(self, rails):
         for rail in rails:
             stepper = rail.get_steppers()[0]
@@ -112,6 +119,7 @@ class EndstopPhase:
             rail.set_tag_position(pos)
             return True
 
+
 class EndstopPhases:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -123,6 +131,7 @@ class EndstopPhases:
         # Register event handler
         self.printer.register_event_handler(
             "homing:home_rails_end", self.handle_home_rails_end)
+
     def lookup_rail(self, stepper, stepper_name):
         mod_name = "endstop_phase %s" % (stepper_name,)
         m = self.printer.lookup_object(mod_name, None)
@@ -134,6 +143,7 @@ class EndstopPhases:
             if m is not None:
                 return (m.get_phase, [0] * (m.get_microsteps() * 4))
         return None
+
     def update_rail(self, info, stepper):
         if info is None:
             return
@@ -146,6 +156,7 @@ class EndstopPhases:
             logging.exception("Error in EndstopPhases get_phase")
             return
         phase_history[phase] += 1
+
     def handle_home_rails_end(self, rails):
         for rail in rails:
             stepper = rail.get_steppers()[0]
@@ -154,7 +165,9 @@ class EndstopPhases:
                 info = self.lookup_rail(stepper, stepper_name)
                 self.tracking[stepper_name] = info
             self.update_rail(self.tracking[stepper_name], stepper)
+
     cmd_ENDSTOP_PHASE_CALIBRATE_help = "Calibrate stepper phase"
+
     def cmd_ENDSTOP_PHASE_CALIBRATE(self, params):
         stepper_name = self.gcode.get_str('STEPPER', params, None)
         if stepper_name is None:
@@ -172,6 +185,7 @@ class EndstopPhases:
         self.gcode.respond_info(
             "The SAVE_CONFIG command will update the printer config\n"
             "file with these parameters and restart the printer.")
+
     def generate_stats(self, stepper_name, info):
         get_phase, phase_history = info
         wph = phase_history + phase_history
@@ -181,7 +195,7 @@ class EndstopPhases:
         res = []
         for i in range(phases):
             phase = i + half_phases
-            cost = sum([wph[j] * abs(j-phase) for j in range(i, i+phases)])
+            cost = sum([wph[j] * abs(j - phase) for j in range(i, i + phases)])
             res.append((cost, phase))
         res.sort()
         best = res[0][1]
@@ -192,6 +206,7 @@ class EndstopPhases:
         self.gcode.respond_info("%s: endstop_phase=%d (range %d to %d)" % (
             stepper_name, best_phase, lo, hi))
         return best_phase
+
     def report_stats(self):
         if not self.tracking:
             self.gcode.respond_info(
@@ -202,8 +217,10 @@ class EndstopPhases:
                 continue
             self.generate_stats(stepper_name, info)
 
+
 def load_config_prefix(config):
     return EndstopPhase(config)
+
 
 def load_config(config):
     return EndstopPhases(config)

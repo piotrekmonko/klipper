@@ -10,6 +10,7 @@ MAX_FAN_TIME = 5.0
 AMBIENT_TEMP = 25.
 PID_PARAM_BASE = 255.
 
+
 class TemperatureFan:
     def __init__(self, config):
         self.name = config.get_name().split()[1]
@@ -56,30 +57,39 @@ class TemperatureFan:
         self.next_speed_time = speed_time + 0.75 * MAX_FAN_TIME
         self.last_speed_value = value
         self.fan.set_speed(speed_time, value)
+
     def temperature_callback(self, read_time, temp):
         self.last_temp = temp
         self.control.temperature_callback(read_time, temp)
+
     def get_temp(self, eventtime):
         return self.last_temp, self.target_temp
+
     def get_min_speed(self):
         return self.min_speed
+
     def get_max_speed(self):
         return self.max_speed
+
     def get_status(self, eventtime):
         status = self.fan.get_status(eventtime)
         status["temperature"] = self.last_temp
         status["target"] = self.target_temp
         return status
+
     cmd_SET_TEMPERATURE_FAN_TARGET_TEMP_help = "Sets a temperature fan target"
+
     def cmd_SET_TEMPERATURE_FAN_TARGET_TEMP(self, params):
         temp = self.gcode.get_float('TARGET', params, self.target_temp_conf)
         self.set_temp(temp)
+
     def set_temp(self, degrees):
         if degrees and (degrees < self.min_temp or degrees > self.max_temp):
             raise self.gcode.error(
                 "Requested temperature (%.1f) out of range (%.1f:%.1f)"
                 % (degrees, self.min_temp, self.max_temp))
         self.target_temp = degrees
+
 
 ######################################################################
 # Bang-bang control algo
@@ -90,13 +100,14 @@ class ControlBangBang:
         self.temperature_fan = temperature_fan
         self.max_delta = config.getfloat('max_delta', 2.0, above=0.)
         self.heating = False
+
     def temperature_callback(self, read_time, temp):
         current_temp, target_temp = self.temperature_fan.get_temp(read_time)
         if (self.heating
-            and temp >= target_temp+self.max_delta):
+                and temp >= target_temp + self.max_delta):
             self.heating = False
         elif (not self.heating
-              and temp <= target_temp-self.max_delta):
+              and temp <= target_temp - self.max_delta):
             self.heating = True
         if self.heating:
             self.temperature_fan.set_speed(read_time, 0.)
@@ -104,12 +115,14 @@ class ControlBangBang:
             self.temperature_fan.set_speed(read_time,
                                            self.temperature_fan.get_max_speed())
 
+
 ######################################################################
 # Proportional Integral Derivative (PID) control algo
 ######################################################################
 
 PID_SETTLE_DELTA = 1.
 PID_SETTLE_SLOPE = .1
+
 
 class ControlPID:
     def __init__(self, temperature_fan, config):
@@ -125,6 +138,7 @@ class ControlPID:
         self.prev_temp_time = 0.
         self.prev_temp_deriv = 0.
         self.prev_temp_integ = 0.
+
     def temperature_callback(self, read_time, temp):
         current_temp, target_temp = self.temperature_fan.get_temp(read_time)
         time_diff = read_time - self.prev_temp_time
@@ -133,14 +147,14 @@ class ControlPID:
         if time_diff >= self.min_deriv_time:
             temp_deriv = temp_diff / time_diff
         else:
-            temp_deriv = (self.prev_temp_deriv * (self.min_deriv_time-time_diff)
+            temp_deriv = (self.prev_temp_deriv * (self.min_deriv_time - time_diff)
                           + temp_diff) / self.min_deriv_time
         # Calculate accumulated temperature "error"
         temp_err = target_temp - temp
         temp_integ = self.prev_temp_integ + temp_err * time_diff
         temp_integ = max(0., min(self.temp_integ_max, temp_integ))
         # Calculate output
-        co = self.Kp*temp_err + self.Ki*temp_integ - self.Kd*temp_deriv
+        co = self.Kp * temp_err + self.Ki * temp_integ - self.Kd * temp_deriv
         bounded_co = max(0., min(self.temperature_fan.get_max_speed(), co))
         self.temperature_fan.set_speed(
             read_time, max(self.temperature_fan.get_min_speed(),
@@ -151,6 +165,7 @@ class ControlPID:
         self.prev_temp_deriv = temp_deriv
         if co == bounded_co:
             self.prev_temp_integ = temp_integ
+
 
 def load_config_prefix(config):
     return TemperatureFan(config)

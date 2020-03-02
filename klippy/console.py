@@ -4,8 +4,18 @@
 # Copyright (C) 2016,2017  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import sys, optparse, os, re, logging
-import reactor, serialhdl, pins, util, msgproto, clocksync
+import logging
+import optparse
+import os
+import re
+import sys
+
+import clocksync
+import msgproto
+import pins
+import reactor
+import serialhdl
+import util
 
 help_txt = """
   This is a debugging console for the Klipper micro-controller.
@@ -29,6 +39,7 @@ help_txt = """
 
 re_eval = re.compile(r'\{(?P<eval>[^}]*)\}')
 
+
 class KeyboardReader:
     def __init__(self, ser, reactor):
         self.ser = ser
@@ -49,9 +60,10 @@ class KeyboardReader:
             "LIST": self.command_LIST, "HELP": self.command_HELP,
         }
         self.eval_globals = {}
+
     def connect(self, eventtime):
         self.output(help_txt)
-        self.output("="*20 + " attempting to connect " + "="*20)
+        self.output("=" * 20 + " attempting to connect " + "=" * 20)
         self.ser.connect()
         msgparser = self.ser.get_msgparser()
         self.output("Loaded %d commands (%s / %s)" % (
@@ -63,26 +75,33 @@ class KeyboardReader:
         self.ser.handle_default = self.handle_default
         self.ser.register_response(self.handle_output, '#output')
         self.mcu_freq = msgparser.get_constant_float('CLOCK_FREQ')
-        self.output("="*20 + "       connected       " + "="*20)
+        self.output("=" * 20 + "       connected       " + "=" * 20)
         return self.reactor.NEVER
+
     def output(self, msg):
         sys.stdout.write("%s\n" % (msg,))
         sys.stdout.flush()
+
     def handle_default(self, params):
         tdiff = params['#receive_time'] - self.start_time
         msg = self.ser.get_msgparser().format_params(params)
         self.output("%07.3f: %s" % (tdiff, msg))
+
     def handle_output(self, params):
         tdiff = params['#receive_time'] - self.start_time
         self.output("%07.3f: %s: %s" % (tdiff, params['#name'], params['#msg']))
+
     def handle_suppress(self, params):
         pass
+
     def update_evals(self, eventtime):
         self.eval_globals['freq'] = self.mcu_freq
         self.eval_globals['clock'] = self.clocksync.get_clock(eventtime)
+
     def command_PINS(self, parts):
         mcu_type = self.ser.get_msgparser().get_constant('MCU')
         self.pins.add_pin_mapping(mcu_type, parts[1])
+
     def command_SET(self, parts):
         val = parts[2]
         try:
@@ -90,6 +109,7 @@ class KeyboardReader:
         except ValueError:
             pass
         self.eval_globals[parts[1]] = val
+
     def command_DELAY(self, parts):
         try:
             val = int(parts[1])
@@ -101,6 +121,7 @@ class KeyboardReader:
         except msgproto.error as e:
             self.output("Error: %s" % (str(e),))
             return
+
     def command_FLOOD(self, parts):
         try:
             count = int(parts[1])
@@ -120,6 +141,7 @@ class KeyboardReader:
         except msgproto.error as e:
             self.output("Error: %s" % (str(e),))
             return
+
     def command_SUPPRESS(self, parts):
         oid = None
         try:
@@ -130,10 +152,12 @@ class KeyboardReader:
             self.output("Error: %s" % (str(e),))
             return
         self.ser.register_response(self.handle_suppress, name, oid)
+
     def command_STATS(self, parts):
         curtime = self.reactor.monotonic()
         self.output(' '.join([self.ser.stats(curtime),
                               self.clocksync.stats(curtime)]))
+
     def command_LIST(self, parts):
         self.update_evals(self.reactor.monotonic())
         mp = self.ser.get_msgparser()
@@ -146,8 +170,10 @@ class KeyboardReader:
         lvars = sorted(self.eval_globals.items())
         out += "\n  ".join([""] + ["%s: %s" % (k, v) for k, v in lvars])
         self.output(out)
+
     def command_HELP(self, parts):
         self.output(help_txt)
+
     def translate(self, line, eventtime):
         evalparts = re_eval.split(line)
         if len(evalparts) > 1:
@@ -174,6 +200,7 @@ class KeyboardReader:
                 self.local_commands[parts[0]](parts)
                 return None
         return line
+
     def process_kbd(self, eventtime):
         self.data += os.read(self.fd, 4096)
 
@@ -194,6 +221,7 @@ class KeyboardReader:
                 self.output("Error: %s" % (str(e),))
         self.data = kbdlines[-1]
 
+
 def main():
     usage = "%prog [options] <serialdevice> <baud>"
     opts = optparse.OptionParser(usage)
@@ -209,6 +237,7 @@ def main():
         r.run()
     except KeyboardInterrupt:
         sys.stdout.write("\n")
+
 
 if __name__ == '__main__':
     main()

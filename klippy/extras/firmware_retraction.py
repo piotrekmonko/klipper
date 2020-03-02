@@ -60,7 +60,7 @@ class FirmwareRetraction:
                 "G91\n"
                 "G1 E-%.5f F%d\n"
                 "RESTORE_GCODE_STATE NAME=_retract_state"
-                % (self.retract_length, self.retract_speed*60))
+                % (self.retract_length, self.retract_speed * 60))
             self.is_retracted = True
 
     def cmd_G11(self, params):
@@ -70,8 +70,9 @@ class FirmwareRetraction:
                 "G91\n"
                 "G1 E%.5f F%d\n"
                 "RESTORE_GCODE_STATE NAME=_retract_state"
-                % (self.unretract_length, self.unretract_speed*60))
+                % (self.unretract_length, self.unretract_speed * 60))
             self.is_retracted = False
+
 
 def load_config(config):
     return FirmwareRetraction(config)

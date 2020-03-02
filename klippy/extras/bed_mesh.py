@@ -4,11 +4,12 @@
 # Copyright (C) 2018-2019 Eric Callahan <arksine.code@gmail.com>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
+import collections
+import json
 import logging
 import math
-import json
+
 import probe
-import collections
 
 PROFILE_VERSION = 1
 PROFILE_OPTIONS = {
@@ -17,20 +18,25 @@ PROFILE_OPTIONS = {
     'algo': str, 'tension': float
 }
 
+
 class BedMeshError(Exception):
     pass
 
+
 # PEP 485 isclose()
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
-    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+    return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+
 
 # Constrain value between min and max
 def constrain(val, min_val, max_val):
     return min(max_val, max(min_val, val))
 
+
 # Linear interpolation between two values
 def lerp(t, v0, v1):
     return (1. - t) * v0 + t * v1
+
 
 # retreive commma separated pair from config
 def parse_pair(config, param, check=True, cast=float,
@@ -58,6 +64,7 @@ def parse_pair(config, param, check=True, cast=float,
 
 class BedMesh:
     FADE_DISABLE = 0x7FFFFFFF
+
     def __init__(self, config):
         self.printer = config.get_printer()
         self.printer.register_event_handler("klippy:ready",
@@ -87,9 +94,11 @@ class BedMesh:
             'BED_MESH_CLEAR', self.cmd_BED_MESH_CLEAR,
             desc=self.cmd_BED_MESH_CLEAR_help)
         self.gcode.set_move_transform(self)
+
     def handle_ready(self):
         self.toolhead = self.printer.lookup_object('toolhead')
         self.bmc.handle_ready()
+
     def set_mesh(self, mesh):
         if mesh is not None and self.fade_end != self.FADE_DISABLE:
             self.log_fade_complete = True
@@ -125,6 +134,7 @@ class BedMesh:
         self.splitter.initialize(mesh)
         # cache the current position before a transform takes place
         self.gcode.reset_last_position()
+
     def get_z_factor(self, z_pos):
         if z_pos >= self.fade_end:
             return 0.
@@ -132,6 +142,7 @@ class BedMesh:
             return (self.fade_end - z_pos) / self.fade_dist
         else:
             return 1.
+
     def get_position(self):
         # Return last, non-transformed position
         if self.z_mesh is None:
@@ -157,6 +168,7 @@ class BedMesh:
             final_z_adj = factor * z_adj + self.fade_target
             self.last_position[:] = [x, y, z - final_z_adj, e]
         return list(self.last_position)
+
     def move(self, newpos, speed):
         factor = self.get_z_factor(newpos[2])
         if self.z_mesh is None or not factor:
@@ -178,7 +190,9 @@ class BedMesh:
                     raise self.gcode.error(
                         "Mesh Leveling: Error splitting move ")
         self.last_position[:] = newpos
+
     cmd_BED_MESH_OUTPUT_help = "Retrieve interpolated grid of probed z-points"
+
     def cmd_BED_MESH_OUTPUT(self, params):
         if self.gcode.get_int('PGP', params, 0):
             # Print Generated Points instead of mesh
@@ -188,7 +202,9 @@ class BedMesh:
         else:
             self.bmc.print_probed_positions(self.gcode.respond_info)
             self.z_mesh.print_mesh(self.gcode.respond, self.horizontal_move_z)
+
     cmd_BED_MESH_MAP_help = "Serialize mesh and output to terminal"
+
     def cmd_BED_MESH_MAP(self, params):
         if self.z_mesh is not None:
             params = self.z_mesh.mesh_params
@@ -200,13 +216,16 @@ class BedMesh:
                 "mesh_map_output " + json.dumps(outdict))
         else:
             self.gcode.respond_info("Bed has not been probed")
+
     cmd_BED_MESH_CLEAR_help = "Clear the Mesh so no z-adjusment is made"
+
     def cmd_BED_MESH_CLEAR(self, params):
         self.set_mesh(None)
 
 
 class BedMeshCalibrate:
     ALGOS = ['lagrange', 'bicubic']
+
     def __init__(self, config, bedmesh):
         self.printer = config.get_printer()
         self.name = config.get_name()
@@ -233,11 +252,13 @@ class BedMeshCalibrate:
         self.gcode.register_command(
             'BED_MESH_PROFILE', self.cmd_BED_MESH_PROFILE,
             desc=self.cmd_BED_MESH_PROFILE_help)
+
     def handle_ready(self):
         self.print_generated_points(logging.info)
         self._check_incompatible_profiles()
         if "default" in self.profiles:
             self.load_profile("default")
+
     def _generate_points(self, config):
         self.radius = config.getfloat('mesh_radius', None, above=0.)
         if self.radius is not None:
@@ -294,12 +315,13 @@ class BedMeshCalibrate:
                     points.append((pos_x, pos_y))
                 else:
                     # round bed, check distance from origin
-                    dist_from_origin = math.sqrt(pos_x*pos_x + pos_y*pos_y)
+                    dist_from_origin = math.sqrt(pos_x * pos_x + pos_y * pos_y)
                     if dist_from_origin <= self.radius:
                         points.append(
                             (self.origin[0] + pos_x, self.origin[1] + pos_y))
             pos_y += y_dist
         return points
+
     def print_generated_points(self, print_func):
         x_offset = y_offset = 0.
         probe = self.printer.lookup_object('probe', None)
@@ -317,6 +339,7 @@ class BedMeshCalibrate:
             print_func(
                 "bed_mesh: relative_reference_index %d is (%.2f, %.2f)"
                 % (rri, self.points[rri][0], self.points[rri][1]))
+
     def _init_mesh_params(self, config, points):
         pps = parse_pair(config, ('mesh_pps', '2'), check=False,
                          cast=int, minval=0)
@@ -358,6 +381,7 @@ class BedMeshCalibrate:
                 params['algo'] = 'lagrange'
         params['tension'] = config.getfloat(
             'bicubic_tension', .2, minval=0., maxval=2.)
+
     def _check_incompatible_profiles(self):
         if self.incompatible_profiles:
             configfile = self.printer.lookup_object('configfile')
@@ -369,6 +393,7 @@ class BedMeshCalibrate:
                 "The SAVE_CONFIG command will update the printer config\n"
                 "file and restart the printer" %
                 (('\n').join(self.incompatible_profiles)))
+
     def _load_storage(self, config):
         stored_profs = config.get_prefix_sections(self.name)
         # Remove primary bed_mesh section, as it is not a stored profile
@@ -388,7 +413,7 @@ class BedMeshCalibrate:
             z_values = profile.get('points').split('\n')
             self.profiles[name]['points'] = \
                 [[float(pt.strip()) for pt in line.split(',')]
-                    for line in z_values if line.strip()]
+                 for line in z_values if line.strip()]
             self.profiles[name]['mesh_params'] = params = \
                 collections.OrderedDict()
             for key, t in PROFILE_OPTIONS.iteritems():
@@ -398,6 +423,7 @@ class BedMeshCalibrate:
                     params[key] = profile.getfloat(key)
                 elif t is str:
                     params[key] = profile.get(key)
+
     def save_profile(self, prof_name):
         if self.probed_matrix is None:
             self.gcode.respond_info(
@@ -426,6 +452,7 @@ class BedMeshCalibrate:
             "for the current session.  The SAVE_CONFIG command will\n"
             "update the printer config file and restart the printer."
             % (prof_name))
+
     def load_profile(self, prof_name):
         profile = self.profiles.get(prof_name, None)
         if profile is None:
@@ -438,6 +465,7 @@ class BedMeshCalibrate:
         except BedMeshError as e:
             raise self.gcode.error(e.message)
         self.bedmesh.set_mesh(zmesh)
+
     def remove_profile(self, prof_name):
         if prof_name in self.profiles:
             configfile = self.printer.lookup_object('configfile')
@@ -450,7 +478,9 @@ class BedMeshCalibrate:
         else:
             self.gcode.respond_info(
                 "No profile named [%s] to remove" % (prof_name))
+
     cmd_BED_MESH_PROFILE_help = "Bed Mesh Persistent Storage management"
+
     def cmd_BED_MESH_PROFILE(self, params):
         options = collections.OrderedDict({
             'LOAD': self.load_profile,
@@ -469,11 +499,14 @@ class BedMeshCalibrate:
                 return
         self.gcode.respond_info(
             "Invalid syntax '%s'" % (params['#original']))
+
     cmd_BED_MESH_CALIBRATE_help = "Perform Mesh Bed Leveling"
+
     def cmd_BED_MESH_CALIBRATE(self, params):
         self.build_map = False
         self.bedmesh.set_mesh(None)
         self.probe_helper.start_probe(params)
+
     def print_probed_positions(self, print_func):
         if self.probed_matrix is not None:
             msg = "Mesh Leveling Probed Z positions:\n"
@@ -484,6 +517,7 @@ class BedMeshCalibrate:
             print_func(msg)
         else:
             print_func("bed_mesh: bed has not been probed")
+
     def probe_finalize(self, offsets, positions):
         x_offset, y_offset, z_offset = offsets
         params = self.mesh_params
@@ -538,7 +572,7 @@ class BedMeshCalibrate:
                 if buf_cnt == 0:
                     continue
                 left_buffer = [row[0]] * buf_cnt
-                right_buffer = [row[row_size-1]] * buf_cnt
+                right_buffer = [row[row_size - 1]] * buf_cnt
                 row[0:0] = left_buffer
                 row.extend(right_buffer)
 
@@ -547,7 +581,7 @@ class BedMeshCalibrate:
             if len(row) != x_cnt:
                 raise self.gcode.error(
                     ("bed_mesh: invalid x-axis table length\n"
-                        "Probed table length: %d Probed Table:\n%s") %
+                     "Probed table length: %d Probed Table:\n%s") %
                     (len(self.probed_matrix), str(self.probed_matrix)))
 
         mesh = ZMesh(params)
@@ -568,8 +602,10 @@ class MoveSplitter:
             'move_check_distance', 5., minval=3.)
         self.z_mesh = None
         self.gcode = gcode
+
     def initialize(self, mesh):
         self.z_mesh = mesh
+
     def build_move(self, prev_pos, next_pos, factor):
         self.prev_pos = tuple(prev_pos)
         self.next_pos = tuple(next_pos)
@@ -579,11 +615,13 @@ class MoveSplitter:
         self.traverse_complete = False
         self.distance_checked = 0.
         axes_d = [self.next_pos[i] - self.prev_pos[i] for i in range(4)]
-        self.total_move_length = math.sqrt(sum([d*d for d in axes_d[:3]]))
+        self.total_move_length = math.sqrt(sum([d * d for d in axes_d[:3]]))
         self.axis_move = [not isclose(d, 0., abs_tol=1e-10) for d in axes_d]
+
     def _calc_z_offset(self, pos):
         z = self.z_mesh.calc_z(pos[0], pos[1])
         return self.z_factor * z + self.z_mesh.mesh_offset
+
     def _set_next_move(self, distance_from_prev):
         t = distance_from_prev / self.total_move_length
         if t > 1. or t < 0.:
@@ -594,6 +632,7 @@ class MoveSplitter:
             if self.axis_move[i]:
                 self.current_pos[i] = lerp(
                     t, self.prev_pos[i], self.next_pos[i])
+
     def split(self):
         if not self.traverse_complete:
             if self.axis_move[0] or self.axis_move[1]:
@@ -606,8 +645,8 @@ class MoveSplitter:
                     if abs(next_z - self.z_offset) >= self.split_delta_z:
                         self.z_offset = next_z
                         return self.current_pos[0], self.current_pos[1], \
-                            self.current_pos[2] + self.z_offset, \
-                            self.current_pos[3]
+                               self.current_pos[2] + self.z_offset, \
+                               self.current_pos[3]
             # end of move reached
             self.current_pos[:] = self.next_pos
             self.z_offset = self._calc_z_offset(self.current_pos)
@@ -660,6 +699,7 @@ class ZMesh:
                            (self.mesh_x_count - 1)
         self.mesh_y_dist = (self.mesh_y_max - self.mesh_y_min) / \
                            (self.mesh_y_count - 1)
+
     def print_mesh(self, print_func, move_z=None):
         if self.mesh_matrix is not None:
             msg = "Mesh X,Y: %d,%d\n" % (self.mesh_x_count, self.mesh_y_count)
@@ -678,6 +718,7 @@ class ZMesh:
             print_func(msg)
         else:
             print_func("bed_mesh: Z Mesh not generated")
+
     def build_mesh(self, z_matrix):
         self._sample(z_matrix)
         self.avg_z = (sum([sum(x) for x in self.mesh_matrix]) /
@@ -687,27 +728,32 @@ class ZMesh:
         # z step distances
         self.avg_z = round(self.avg_z, 2)
         self.print_mesh(logging.debug)
+
     def offset_mesh(self, offset):
         if self.mesh_matrix:
             self.mesh_offset = offset
             for y_line in self.mesh_matrix:
                 for idx, z in enumerate(y_line):
                     y_line[idx] = z - self.mesh_offset
+
     def get_x_coordinate(self, index):
         return self.mesh_x_min + self.mesh_x_dist * index
+
     def get_y_coordinate(self, index):
         return self.mesh_y_min + self.mesh_y_dist * index
+
     def calc_z(self, x, y):
         if self.mesh_matrix is not None:
             tbl = self.mesh_matrix
             tx, xidx = self._get_linear_index(x, 0)
             ty, yidx = self._get_linear_index(y, 1)
-            z0 = lerp(tx, tbl[yidx][xidx], tbl[yidx][xidx+1])
-            z1 = lerp(tx, tbl[yidx+1][xidx], tbl[yidx+1][xidx+1])
+            z0 = lerp(tx, tbl[yidx][xidx], tbl[yidx][xidx + 1])
+            z1 = lerp(tx, tbl[yidx + 1][xidx], tbl[yidx + 1][xidx + 1])
             return lerp(ty, z0, z1)
         else:
             # No mesh table generated, no z-adjustment
             return 0.
+
     def get_z_range(self):
         if self.mesh_matrix is not None:
             mesh_min = min([min(x) for x in self.mesh_matrix])
@@ -715,6 +761,7 @@ class ZMesh:
             return mesh_min, mesh_max
         else:
             return 0., 0.
+
     def _get_linear_index(self, coord, axis):
         if axis == 0:
             # X-axis
@@ -733,15 +780,17 @@ class ZMesh:
         idx = constrain(idx, 0, mesh_cnt - 2)
         t = (coord - cfunc(idx)) / mesh_dist
         return constrain(t, 0., 1.), idx
+
     def _sample_direct(self, z_matrix):
         self.mesh_matrix = z_matrix
+
     def _sample_lagrange(self, z_matrix):
         x_mult = self.x_mult
         y_mult = self.y_mult
         self.mesh_matrix = \
             [[0. if ((i % x_mult) or (j % y_mult))
-             else z_matrix[j/y_mult][i/x_mult]
-             for i in range(self.mesh_x_count)]
+              else z_matrix[j / y_mult][i / x_mult]
+              for i in range(self.mesh_x_count)]
              for j in range(self.mesh_y_count)]
         xpts, ypts = self._get_lagrange_coords()
         # Interpolate X coordinates
@@ -761,6 +810,7 @@ class ZMesh:
                     continue
                 y = self.get_y_coordinate(j)
                 self.mesh_matrix[j][i] = self._calc_lagrange(ypts, y, i, 1)
+
     def _get_lagrange_coords(self):
         xpts = []
         ypts = []
@@ -769,6 +819,7 @@ class ZMesh:
         for j in range(self.mesh_params['y_count']):
             ypts.append(self.get_y_coordinate(j * self.y_mult))
         return xpts, ypts
+
     def _calc_lagrange(self, lpts, c, vec, axis=0):
         pt_cnt = len(lpts)
         total = 0.
@@ -782,12 +833,13 @@ class ZMesh:
                 d *= (lpts[i] - lpts[j])
             if axis == 0:
                 # Calc X-Axis
-                z = self.mesh_matrix[vec][i*self.x_mult]
+                z = self.mesh_matrix[vec][i * self.x_mult]
             else:
                 # Calc Y-Axis
-                z = self.mesh_matrix[i*self.y_mult][vec]
+                z = self.mesh_matrix[i * self.y_mult][vec]
             total += z * n / d
         return total
+
     def _sample_bicubic(self, z_matrix):
         # should work for any number of probe points above 3x3
         x_mult = self.x_mult
@@ -795,8 +847,8 @@ class ZMesh:
         c = self.mesh_params['tension']
         self.mesh_matrix = \
             [[0. if ((i % x_mult) or (j % y_mult))
-             else z_matrix[j/y_mult][i/x_mult]
-             for i in range(self.mesh_x_count)]
+              else z_matrix[j / y_mult][i / x_mult]
+              for i in range(self.mesh_x_count)]
              for j in range(self.mesh_y_count)]
         # Interpolate X values
         for y in range(self.mesh_y_count):
@@ -814,6 +866,7 @@ class ZMesh:
                     continue
                 pts = self._get_y_ctl_pts(x, y)
                 self.mesh_matrix[y][x] = self._cardinal_spline(pts, c)
+
     def _get_x_ctl_pts(self, x, y):
         # Fetch control points and t for a X value in the mesh
         x_mult = self.x_mult
@@ -822,7 +875,7 @@ class ZMesh:
         if x < x_mult:
             p0 = p1 = x_row[0]
             p2 = x_row[x_mult]
-            p3 = x_row[2*x_mult]
+            p3 = x_row[2 * x_mult]
             t = x / float(x_mult)
         elif x > last_pt:
             p0 = x_row[last_pt - x_mult]
@@ -836,7 +889,7 @@ class ZMesh:
                     p0 = x_row[i - x_mult]
                     p1 = x_row[i]
                     p2 = x_row[i + x_mult]
-                    p3 = x_row[i + 2*x_mult]
+                    p3 = x_row[i + 2 * x_mult]
                     t = (x - i) / float(x_mult)
                     found = True
                     break
@@ -844,6 +897,7 @@ class ZMesh:
                 raise BedMeshError(
                     "bed_mesh: Error finding x control points")
         return p0, p1, p2, p3, t
+
     def _get_y_ctl_pts(self, x, y):
         # Fetch control points and t for a Y value in the mesh
         y_mult = self.y_mult
@@ -852,7 +906,7 @@ class ZMesh:
         if y < y_mult:
             p0 = p1 = y_col[0][x]
             p2 = y_col[y_mult][x]
-            p3 = y_col[2*y_mult][x]
+            p3 = y_col[2 * y_mult][x]
             t = y / float(y_mult)
         elif y > last_pt:
             p0 = y_col[last_pt - y_mult][x]
@@ -866,7 +920,7 @@ class ZMesh:
                     p0 = y_col[i - y_mult][x]
                     p1 = y_col[i][x]
                     p2 = y_col[i + y_mult][x]
-                    p3 = y_col[i + 2*y_mult][x]
+                    p3 = y_col[i + 2 * y_mult][x]
                     t = (y - i) / float(y_mult)
                     found = True
                     break
@@ -874,15 +928,16 @@ class ZMesh:
                 raise BedMeshError(
                     "bed_mesh: Error finding y control points")
         return p0, p1, p2, p3, t
+
     def _cardinal_spline(self, p, tension):
         t = p[4]
-        t2 = t*t
-        t3 = t2*t
+        t2 = t * t
+        t3 = t2 * t
         m1 = tension * (p[2] - p[0])
         m2 = tension * (p[3] - p[1])
-        a = p[1] * (2*t3 - 3*t2 + 1)
-        b = p[2] * (-2*t3 + 3*t2)
-        c = m1 * (t3 - 2*t2 + t)
+        a = p[1] * (2 * t3 - 3 * t2 + 1)
+        b = p[2] * (-2 * t3 + 3 * t2)
+        c = m1 * (t3 - 2 * t2 + t)
         d = m2 * (t3 - t2)
         return a + b + c + d
 

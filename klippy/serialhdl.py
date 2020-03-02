@@ -3,16 +3,23 @@
 # Copyright (C) 2016-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, threading
+import logging
+import threading
+
 import serial
 
-import msgproto, chelper, util
+import chelper
+import msgproto
+import util
+
 
 class error(Exception):
     pass
 
+
 class SerialReader:
     BITS_PER_BYTE = 10.
+
     def __init__(self, reactor, serialport, baud):
         self.reactor = reactor
         self.serialport = serialport
@@ -35,6 +42,7 @@ class SerialReader:
         # Sent message notification tracking
         self.last_notify_id = 0
         self.pending_notifications = {}
+
     def _bg_thread(self):
         response = self.ffi_main.new('struct pull_queue_message *')
         while 1:
@@ -58,6 +66,7 @@ class SerialReader:
                     hdl(params)
             except:
                 logging.exception("Exception in serial callback")
+
     def _get_identify_data(self, eventtime):
         # Query the "data dictionary" from the micro-controller
         identify_data = ""
@@ -74,6 +83,7 @@ class SerialReader:
                     # Done
                     return identify_data
                 identify_data += msgdata
+
     def connect(self):
         # Initial connection
         logging.info("Starting serial connect")
@@ -119,13 +129,16 @@ class SerialReader:
         if receive_window is not None:
             self.ffi_lib.serialqueue_set_receive_window(
                 self.serialqueue, receive_window)
+
     def connect_file(self, debugoutput, dictionary, pace=False):
         self.ser = debugoutput
         self.msgparser.process_identify(dictionary, decompress=False)
         self.serialqueue = self.ffi_lib.serialqueue_alloc(self.ser.fileno(), 1)
+
     def set_clock_est(self, freq, last_time, last_clock):
         self.ffi_lib.serialqueue_set_clock_est(
             self.serialqueue, freq, last_time, last_clock)
+
     def disconnect(self):
         if self.serialqueue is not None:
             self.ffi_lib.serialqueue_exit(self.serialqueue)
@@ -139,18 +152,23 @@ class SerialReader:
         for pn in self.pending_notifications.values():
             pn.complete(None)
         self.pending_notifications.clear()
+
     def stats(self, eventtime):
         if self.serialqueue is None:
             return ""
         self.ffi_lib.serialqueue_get_stats(
             self.serialqueue, self.stats_buf, len(self.stats_buf))
         return self.ffi_main.string(self.stats_buf)
+
     def get_reactor(self):
         return self.reactor
+
     def get_msgparser(self):
         return self.msgparser
+
     def get_default_command_queue(self):
         return self.default_cmd_queue
+
     # Serial response callbacks
     def register_response(self, callback, name, oid=None):
         with self.lock:
@@ -158,10 +176,12 @@ class SerialReader:
                 del self.handlers[name, oid]
             else:
                 self.handlers[name, oid] = callback
+
     # Command sending
     def raw_send(self, cmd, minclock, reqclock, cmd_queue):
         self.ffi_lib.serialqueue_send(self.serialqueue, cmd_queue,
                                       cmd, len(cmd), minclock, reqclock, 0)
+
     def raw_send_wait_ack(self, cmd, minclock, reqclock, cmd_queue):
         self.last_notify_id += 1
         nid = self.last_notify_id
@@ -173,16 +193,20 @@ class SerialReader:
         if params is None:
             raise error("Serial connection closed")
         return params
+
     def send(self, msg, minclock=0, reqclock=0):
         cmd = self.msgparser.create_command(msg)
         self.raw_send(cmd, minclock, reqclock, self.default_cmd_queue)
+
     def send_with_response(self, msg, response):
         cmd = self.msgparser.create_command(msg)
         src = SerialRetryCommand(self, response)
         return src.get_response(cmd, self.default_cmd_queue)
+
     def alloc_command_queue(self):
         return self.ffi_main.gc(self.ffi_lib.serialqueue_alloc_commandqueue(),
                                 self.ffi_lib.serialqueue_free_commandqueue)
+
     # Dumping debug lists
     def dump_debug(self):
         out = []
@@ -207,19 +231,25 @@ class SerialReader:
             out.append("Receive: %d %f %f %d: %s" % (
                 i, msg.receive_time, msg.sent_time, msg.len, ', '.join(cmds)))
         return '\n'.join(out)
+
     # Default message handlers
     def _handle_unknown_init(self, params):
         logging.debug("Unknown message %d (len %d) while identifying",
                       params['#msgid'], len(params['#msg']))
+
     def handle_unknown(self, params):
         logging.warn("Unknown message type %d: %s",
                      params['#msgid'], repr(params['#msg']))
+
     def handle_output(self, params):
         logging.info("%s: %s", params['#name'], params['#msg'])
+
     def handle_default(self, params):
         logging.warn("got %s", params)
+
     def __del__(self):
         self.disconnect()
+
 
 # Class to send a query command and return the received response
 class SerialRetryCommand:
@@ -229,8 +259,10 @@ class SerialRetryCommand:
         self.oid = oid
         self.last_params = None
         self.serial.register_response(self.handle_callback, name, oid)
+
     def handle_callback(self, params):
         self.last_params = params
+
     def get_response(self, cmd, cmd_queue, minclock=0):
         retries = 5
         retry_delay = .010
@@ -247,6 +279,7 @@ class SerialRetryCommand:
             reactor.pause(reactor.monotonic() + retry_delay)
             retries -= 1
             retry_delay *= 2.
+
 
 # Attempt to place an AVR stk500v2 style programmer into normal mode
 def stk500v2_leave(ser, reactor):
@@ -265,6 +298,7 @@ def stk500v2_leave(ser, reactor):
     res = ser.read(4096)
     logging.debug("Got %s from stk500v2", repr(res))
     ser.baudrate = origbaud
+
 
 # Attempt an arduino style reset on a serial port
 def arduino_reset(serialport, reactor):

@@ -5,6 +5,7 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging
 
+
 class GCodeButton:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -17,7 +18,7 @@ class GCodeButton:
         gcode_macro = self.printer.try_load_module(config, 'gcode_macro')
         self.press_template = gcode_macro.load_template(config, 'press_gcode')
         self.release_template = gcode_macro.load_template(
-                                        config, 'release_gcode')
+            config, 'release_gcode')
         self.gcode = self.printer.lookup_object('gcode')
         self.gcode.register_mux_command("QUERY_BUTTON", "BUTTON", self.name,
                                         self.cmd_QUERY_BUTTON,
@@ -31,9 +32,9 @@ class GCodeButton:
     def button_callback(self, eventtime, state):
         self.last_state = state
         if state and bool(self.press_template):
-           self.queue_template(self.press_template)
+            self.queue_template(self.press_template)
         if (not state) and bool(self.release_template):
-           self.queue_template(self.release_template)
+            self.queue_template(self.release_template)
 
     def get_status(self, eventtime=None):
         if self.last_state:
@@ -56,6 +57,7 @@ class GCodeButton:
             except Exception:
                 logging.exception("Script running error")
             self.template_queue.pop(0)
+
 
 def load_config_prefix(config):
     return GCodeButton(config)

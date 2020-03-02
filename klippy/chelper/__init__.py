@@ -3,9 +3,10 @@
 # Copyright (C) 2016-2018  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import os, logging
-import cffi
+import logging
+import os
 
+import cffi
 
 ######################################################################
 # c_helper.so compiling
@@ -150,6 +151,7 @@ defs_all = [
     defs_kin_rotary_delta, defs_kin_winch, defs_kin_extruder
 ]
 
+
 # Return the list of file modification times
 def get_mtimes(srcdir, filelist):
     out = []
@@ -161,6 +163,7 @@ def get_mtimes(srcdir, filelist):
             continue
         out.append(t)
     return out
+
 
 # Check if the code needs to be compiled
 def check_build_code(srcdir, target, sources, cmd, other_files=[]):
@@ -176,9 +179,11 @@ def check_build_code(srcdir, target, sources, cmd, other_files=[]):
             logging.error(msg)
             raise Exception(msg)
 
+
 FFI_main = None
 FFI_lib = None
 pyhelper_logging_callback = None
+
 
 # Return the Foreign Function Interface api to the caller
 def get_ffi():
@@ -191,9 +196,11 @@ def get_ffi():
         for d in defs_all:
             FFI_main.cdef(d)
         FFI_lib = FFI_main.dlopen(os.path.join(srcdir, DEST_LIB))
+
         # Setup error logging
         def logging_callback(msg):
             logging.error(FFI_main.string(msg))
+
         pyhelper_logging_callback = FFI_main.callback(
             "void(const char *)", logging_callback)
         FFI_lib.set_python_logging_callback(pyhelper_logging_callback)
@@ -209,6 +216,7 @@ HC_SOURCE_FILES = ['hub-ctrl.c']
 HC_SOURCE_DIR = '../../lib/hub-ctrl'
 HC_TARGET = "hub-ctrl"
 HC_CMD = "sudo %s/hub-ctrl -h 0 -P 2 -p %d"
+
 
 def run_hub_ctrl(enable_power):
     srcdir = os.path.dirname(os.path.realpath(__file__))
