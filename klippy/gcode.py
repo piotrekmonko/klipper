@@ -37,6 +37,7 @@ class GCodeParser:
         self.partial_input = ""
         self.pending_commands = []
         self.bytes_read = 0
+        self.respond_callbacks = []
         self.input_log = collections.deque([], 50)
         # Command handling
         self.is_printer_ready = False
@@ -336,7 +337,9 @@ class GCodeParser:
     def get_mutex(self):
         return self.mutex
 
-    # Response handling
+    def register_respond_callback(self, callback):
+        self.respond_callbacks.append(callback)
+
     def ack(self, msg=None):
         if not self.need_ack or self.is_fileinput:
             return
@@ -354,6 +357,8 @@ class GCodeParser:
             return
         try:
             os.write(self.fd, msg + "\n")
+            for callback in self.respond_callbacks:
+                callback(msg + "\n")
         except os.error:
             logging.exception("Write g-code response")
 
