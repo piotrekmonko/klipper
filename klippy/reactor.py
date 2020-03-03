@@ -59,9 +59,11 @@ class ReactorCallback:
         self.completion = ReactorCompletion(reactor)
 
     def invoke(self, eventtime):
-        self.reactor.unregister_timer(self.timer)
-        res = self.callback(eventtime)
-        self.completion.complete(res)
+        if getattr(self, 'reactor', None) and getattr(self, 'timer', None):
+            self.reactor.unregister_timer(self.timer)
+        if getattr(self, 'callback', None) and getattr(self, 'completion', None):
+            res = self.callback(eventtime)
+            self.completion.complete(res)
         return self.reactor.NEVER
 
 
