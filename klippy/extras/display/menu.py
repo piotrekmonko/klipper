@@ -967,8 +967,8 @@ menu_items = {
     'input': MenuInput,
     'list': MenuList,
     'vsdcard': MenuVSDCard,
-    'deck': MenuDeck,
-    'card': MenuCard
+    #'deck': MenuDeck,
+    #'card': MenuCard
 }
 
 MENU_UPDATE_DELAY = .100

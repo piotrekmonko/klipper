@@ -3,8 +3,8 @@
 # Copyright (C) 2016-2018  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, bisect
-
+import bisect
+import logging
 
 ######################################################################
 # Interface between MCU adc and heater temperature callbacks
@@ -168,7 +168,12 @@ class CustomLinearResistance:
             if t is None:
                 break
             r = config.getfloat("resistance%d" % (i,))
+<<<<<<< HEAD
+            self.samples.append((r, t))
+
+=======
             self.samples.append((t, r))
+>>>>>>> upstream/master
     def create(self, config):
         lr = LinearResistance(config, self.samples)
         return PrinterADCtoTemperature(config, lr)
@@ -186,7 +191,6 @@ AD595 = [
     (320., 3.227), (340., 3.434), (360., 3.641), (380., 3.849), (400., 4.057),
     (420., 4.266), (440., 4.476), (460., 4.686), (480., 4.896)
 ]
-
 
 AD8494 = [
     (-180, -0.714), (-160, -0.658), (-140, -0.594), (-120, -0.523),
@@ -278,10 +282,13 @@ PT100 = [
     (1000, 4.48), (1100, 4.73)
 ]
 
+<<<<<<< HEAD
+=======
 PT1000 = [
     (0., 1000.), (100., 1385.1), (200., 1758.6), (300., 2120.5),
     (400., 2470.9), (500., 2809.8),
 ]
+>>>>>>> upstream/master
 
 def load_config(config):
     # Register default sensors
@@ -300,6 +307,7 @@ def load_config(config):
                 PrinterADCtoTemperature(config,
                                         LinearResistance(config, params)))
         pheater.add_sensor_factory(sensor_type, func)
+
 
 def load_config_prefix(config):
     if config.get("resistance1", None) is None:
