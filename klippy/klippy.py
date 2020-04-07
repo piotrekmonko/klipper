@@ -67,6 +67,7 @@ class Printer:
     command_error = homing.CommandError
 
     def __init__(self, input_fd, bglogger, start_args):
+        self.input_fd = input_fd
         self.bglogger = bglogger
         self.start_args = start_args
         self.reactor = reactor.Reactor()

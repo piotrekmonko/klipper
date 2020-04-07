@@ -19,8 +19,16 @@ import tornado.gen
 # for webserver
 import tornado.web
 
+from gpiozero import CPUTemperature, BadPinFactory
+
 import util
 
+
+class MockMCUTemp:
+
+    @property
+    def temperature(self):
+        return 0
 
 #
 class WebDwc2:
@@ -31,10 +39,15 @@ class WebDwc2:
     # init who?
     def __init__(self, config):
 
+        try:
+            self._mcu_temp = CPUTemperature()
+        except BadPinFactory:
+            self._mcu_temp = MockMCUTemp()
         self.klipper_ready = False
         self.last_state = 'O'
         self.popup = None
         self.message = None
+        # self.serial = config.get_printer().input_fd
         self.serial = serial.Serial('/tmp/printer', 250000, timeout=0.050)
         # get config
         self.config = config
@@ -82,6 +95,11 @@ class WebDwc2:
         self.file_infos = {}  # just read files once
         self.dwc2()
         logging.basicConfig(level=logging.DEBUG)
+
+    def get_probe_value(self):
+        # params = {'#original': 'QUERY_PROBE'}
+        # res = self.gcode.cmd_QUERY_PROBE(params)
+        return 0
 
     # function once reactor calls, once klipper feels good
     def handle_ready(self):
@@ -694,7 +712,7 @@ class WebDwc2:
             },
             "seq": len(self.gcode_reply),
             "sensors": {
-                "probeValue": 0,
+                "probeValue": self.get_probe_value(),
                 "fanRPM": 0
             },
             "temps": {
@@ -719,7 +737,7 @@ class WebDwc2:
                 "extra": [
                     {
                         "name": "*MCU",
-                        "temp": 0
+                        "temp": self._mcu_temp.temperature
                     }
                 ]
             },
@@ -802,7 +820,7 @@ class WebDwc2:
             },
             "seq": len(self.gcode_reply),
             "sensors": {
-                "probeValue": 0,
+                "probeValue": self.get_probe_value(),
                 "fanRPM": 0
             },
             "temps": {
@@ -828,7 +846,7 @@ class WebDwc2:
                 "extra": [
                     {
                         "name": "*MCU",
-                        "temp": 0
+                        "temp": self._mcu_temp.temperature
                     }
                 ]
             },
@@ -954,7 +972,7 @@ class WebDwc2:
             },
             "seq": len(self.gcode_reply),
             "sensors": {
-                "probeValue": 0,
+                "probeValue": self.get_probe_value(),
                 "fanRPM": 0
             },
             "temps": {
@@ -974,7 +992,7 @@ class WebDwc2:
                 "extra": [
                     {
                         "name": "*MCU",
-                        "temp": 0
+                        "temp": self._mcu_temp.temperature
                     }
                 ]
             },
